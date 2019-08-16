@@ -1,0 +1,6 @@
+---
+
+- name: check machine
+  hosts: nightwatch
+  roles:
+    - check

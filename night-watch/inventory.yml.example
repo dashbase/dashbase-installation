@@ -1,0 +1,23 @@
+all:
+  children:
+    nightwatch:
+      hosts:
+        {YOUR_HOST_IP}
+      vars:
+        # ansible_ssh_private_key_file: {YOUR_SSH_KEY_FILE}
+        # ansible_user: {YOUR_USER}
+        telegraf_agent_output:
+          - type: influxdb
+            config:
+            # - urls = ["http://localhost:8086"]
+              - urls = ["{YOUR_INFLUXDB_HOST_URL}"]
+            # - insecure_skip_verify = true
+              - database = "telegraf"
+              - precision = "10s"
+        telegraf_plugins_default:
+          - plugin: exec
+            config:
+            # - commands = ["/usr/bin/night-watch watch-append -p /var/log/*.log"]
+              - commands = ["/usr/bin/night-watch watch-append -p {YOUR_LOG_PATH_GLOB_PATTERN}"]
+              - timeout = "10s"
+              - data_format = "influx"

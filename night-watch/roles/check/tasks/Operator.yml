@@ -1,0 +1,4 @@
+- name: "Check Machine Release"
+  fail:
+    msg: "The system release not support"
+  when: ansible_os_family != "RedHat" and ansible_os_family != "Debian"

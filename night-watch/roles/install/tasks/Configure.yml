@@ -1,0 +1,117 @@
+---
+- name: "Copy the template for versions"
+  template:
+    src: telegraf.conf.j2
+    dest: /etc/telegraf/telegraf.conf
+    owner: telegraf
+    group: telegraf
+    mode: 0640
+  become: yes
+  notify: "Restart Telegraf"
+
+- name: "Check if extra plugins directory exists in case of exclusive"
+  stat:
+    path: /etc/telegraf/telegraf.d
+  register: telegraf_directory
+  when:
+    - telegraf_plugins_extra_exclusive
+
+- name: "Delete telegraf extra plugin path"
+  file:
+    state: absent
+    path: "/etc/telegraf/telegraf.d/"
+  when:
+    - telegraf_plugins_extra_exclusive
+    - telegraf_directory.stat.exists
+  become: yes
+  notify: "Restart Telegraf"
+
+- name: "Create telegraf extra plugin path"
+  file:
+    state: directory
+    path: "/etc/telegraf/telegraf.d/"
+    owner: telegraf
+    group: telegraf
+    mode: 0755
+  when:
+    - telegraf_plugins_extra_exclusive
+    - telegraf_directory.stat.exists
+  become: yes
+  notify: "Restart Telegraf"
+
+- name: "Copy telegraf extra plugins"
+  template:
+    src: "telegraf-extra-plugin.conf.j2"
+    dest: "/etc/telegraf/telegraf.d/{{ item.key }}.conf"
+    owner: telegraf
+    group: telegraf
+    mode: 0640
+  with_dict: "{{ telegraf_plugins_extra }}"
+  loop_control:
+    label: "{{ item.key }}"
+  when:
+    - telegraf_plugins_extra is defined
+    - telegraf_plugins_extra is iterable
+    - item.value.state|default('present') != 'absent'
+  become: yes
+  notify: "Restart Telegraf"
+
+- name: "Remove telegraf extra plugins"
+  file:
+    path: "/etc/telegraf/telegraf.d/{{ item.key }}.conf"
+    state: absent
+  with_dict: "{{ telegraf_plugins_extra }}"
+  loop_control:
+    label: "{{ item.key }}"
+  when:
+    - telegraf_plugins_extra is defined
+    - telegraf_plugins_extra is iterable
+    - item.value.state|default('present') == 'absent'
+  become: yes
+  notify: "Restart Telegraf"
+
+- name: "Force restart service after reread config"
+  meta: flush_handlers
+
+- name: "Start Telegraf (If it wasn't running)"
+  service:
+    name: telegraf
+    state: restarted
+    enabled: yes
+  become: yes
+
+- name: "Create prometheus pushgateway crontab"
+  cron:
+    name: "telegraf pushgateway"
+    job: "curl -s {{ prometheus_local_exportor_url }} | curl --data-binary @- {{ prometheus_pushgateway_url }}"
+  when:
+    - prometheus_pushgateway_enable
+
+- name: "Check Crond status"
+  shell: "ps -ef | grep -v grep | grep cron | wc -l "
+  register: result
+  when:
+    - prometheus_pushgateway_enable
+
+- name: "Restart Crond Service (If it is running)"
+  shell: "kill $(ps -ef | grep -v grep |grep crond | awk '{print $2}') && crond "
+  when:
+    - result.stdout == "1"
+    - prometheus_pushgateway_enable and ansible_os_family == "RedHat"
+  become: yes
+
+- name: "Start Crond Service (If it wasn't running)"
+  command: crond
+  when:
+    - result.stdout == "0"
+    - prometheus_pushgateway_enable and ansible_os_family == "RedHat"
+  become: yes
+
+- name: "Start Cron Service"
+  service:
+    name: cron
+    state: restarted
+    enabled: yes
+  become: yes
+  when:
+    - prometheus_pushgateway_enable and ansible_os_family == "Debian"
