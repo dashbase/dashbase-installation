@@ -5,8 +5,18 @@
    Replace 
 
     - YOUR_MACHINE_IP
-    - YOUR_INFLUXDB_HOST
+    - YOUR_ANSIBLE_USER
+    - YOUR_ANSIBLE_SSH_PASS | YOUR_SSH_KEY_FILE
+    
     - YOUR_LOG_PATH
+    - YOUR_TABLE_NAME
+    
+    - YOUR_INFLUXDB_URL
+    - YOUR_INFLUXDB_USERNAME
+    - YOUR_INFLUXDB_PASSWORD
+
+    - YOUR_PUSHGHATEWAY_URL
+    - 
 
 2. run connect test
 
@@ -34,7 +44,7 @@ all:
         1.2.3.4:
           ansible_ssh_private_key_file: /Your/Key
       vars:
-        dashbase_proxy: http://{YOUR_DASHBASE_PROXY_URL}
+        dashbase_proxy: http://{YOUR_PROXY_URL}
 ```
 
 2. run ansible playbook

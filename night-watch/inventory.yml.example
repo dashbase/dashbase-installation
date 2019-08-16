@@ -2,22 +2,62 @@ all:
   children:
     nightwatch:
       hosts:
-        {YOUR_HOST_IP}
+        # logmatters-producer-0.logmatters-producer.xxx.svc.cluster.local:
+        # logmatters-producer-1.logmatters-producer.xxx.svc.cluster.local:
+        {YOUR_HOST_IP}:
       vars:
-        # ansible_ssh_private_key_file: {YOUR_SSH_KEY_FILE}
-        # ansible_user: {YOUR_USER}
-        telegraf_agent_output:
+        nightwatch_version: 1.1.1-rc4
+        # ansible_user: root
+        ansible_user: {YOUR_ANSIBLE_USER}
+        # ansible_ssh_pass: ******
+        ansible_ssh_pass: {YOUR_ANSIBLE_SSH_PASS}
+        # OR
+        # ansible_ssh_private_key_file: ~/.ssh/key.pem
+        ansible_ssh_private_key_file: {YOUR_SSH_KEY_FILE}
+
+        telegraf_global_tags:
+          - tag_name: "table"
+            #tag_value: "logmatters"
+            tag_value: "{YOUR_TABLE_NAME}"
+        Telegraf_agent_output:
+
+          - type: prometheus_client
+            config:
+              - listen = ":29273"
+              - expiration_interval = "60s"
           - type: influxdb
             config:
-            # - urls = ["http://localhost:8086"]
-              - urls = ["{YOUR_INFLUXDB_HOST_URL}"]
-            # - insecure_skip_verify = true
-              - database = "telegraf"
+              # - urls = ["https://influxdb.xxx.dashbase.io"]
+              - urls = ["{YOUR_INFLUXDB_URL}"]
+              - database = "dashbase_prometheus"
+              # - username = "dashbase_writer"
+              - username = "{YOUR_INFLUXDB_USERNAME}"
+              # - password = "dashbase_writer"
+              - password = "{YOUR_INFLUXDB_PASSWORD}"
+              - insecure_skip_verify = true
               - precision = "10s"
+
         telegraf_plugins_default:
           - plugin: exec
             config:
-            # - commands = ["/usr/bin/night-watch watch-append -p /var/log/*.log"]
-              - commands = ["/usr/bin/night-watch watch-append -p {YOUR_LOG_PATH_GLOB_PATTERN}"]
+              # - commands = ["/usr/bin/night-watch watch-append -p /data/*.log"]
+              - commands = ["/usr/bin/night-watch watch-append -p {YOU_LOG_PATH}"]
               - timeout = "10s"
               - data_format = "influx"
+
+              #- plugin: exec
+              #  config:
+              #    # - commands = ["night-watch verify -j 'yyyy-MM-dd HH:mm:ss' -p '/data/*.log' -d 60 --api 'https://proxy.xxx.dashbase.io' --table 'logmatters' --column '_subtable' --value '$HOSTNAME'"]
+              #    - commands = ["night-watch verify -j 'yyyy-MM-dd HH:mm:ss' -p '{LOG_PATH}' -d 60 --api '{YOUR_PROXY_URL}' --table '{YOUR_TABLE_NAME}' --column '_subtable' --value '$HOSTNAME'"]
+              #    - timeout = "60s"
+              #    - interval = "60s"
+              #    - data_format = "influx"
+
+          - plugin: http
+            config:
+              - urls = ["http://localhost:5066/stats"]
+              - data_format = "json"
+
+        prometheus_pushgateway_enable: True
+        # prometheus_pushgateway_url: https://pushgateway.xxx.dashbase.io/metrics/job/filebeat/instance/{{ ansible_hostname }}
+        prometheus_pushgateway_url: {YOUR_PUSHGHATEWAY_URL}/metrics/job/filebeat/instance/{{ ansible_hostname }}
