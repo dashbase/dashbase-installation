@@ -25,6 +25,7 @@ all:
             config:
               - listen = ":29273"
               - expiration_interval = "60s"
+
           - type: influxdb
             config:
               # - urls = ["https://influxdb.xxx.dashbase.io"]
@@ -45,13 +46,13 @@ all:
               - timeout = "10s"
               - data_format = "influx"
 
-              #- plugin: exec
-              #  config:
-              #    # - commands = ["night-watch verify -j 'yyyy-MM-dd HH:mm:ss' -p '/data/*.log' -d 60 --api 'https://proxy.xxx.dashbase.io' --table 'logmatters' --column '_subtable' --value '$HOSTNAME'"]
-              #    - commands = ["night-watch verify -j 'yyyy-MM-dd HH:mm:ss' -p '{LOG_PATH}' -d 60 --api '{YOUR_PROXY_URL}' --table '{YOUR_TABLE_NAME}' --column '_subtable' --value '$HOSTNAME'"]
-              #    - timeout = "60s"
-              #    - interval = "60s"
-              #    - data_format = "influx"
+          #- plugin: exec
+          #  config:
+          #    # - commands = ["night-watch verify -j 'yyyy-MM-dd HH:mm:ss' -p '/data/*.log' -d 60 --api 'https://proxy.xxx.dashbase.io' --table 'logmatters' --column '_subtable' --value '$HOSTNAME'"]
+          #    - commands = ["night-watch verify -j 'yyyy-MM-dd HH:mm:ss' -p '{LOG_PATH}' -d 60 --api '{YOUR_PROXY_URL}' --table '{YOUR_TABLE_NAME}' --column '_subtable' --value '$HOSTNAME'"]
+          #    - timeout = "60s"
+          #    - interval = "60s"
+          #    - data_format = "influx"
 
           - plugin: http
             config:
