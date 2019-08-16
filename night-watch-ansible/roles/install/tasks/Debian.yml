@@ -37,7 +37,7 @@
 
 - name: "Debian | Install NightWatch package"
   apt:
-    name: night-watch={{ nightwatch_version }}
+    name: night-watch-ansible={{ nightwatch_version }}
     update_cache: yes
   become: yes
 

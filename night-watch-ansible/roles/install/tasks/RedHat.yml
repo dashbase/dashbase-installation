@@ -6,7 +6,7 @@
 
 - name: " RedHat | Add yum repo"
   yum_repository:
-    name: night-watch
+    name: night-watch-ansible
     description: Dashbase Repository - EPEL
     baseurl: http://artifacts.dashbase.io/rhel
     enabled: true
@@ -22,7 +22,7 @@
 
 - name: " RedHat | Install NightWatch package"
   yum:
-    name: night-watch-{{ nightwatch_version }}
+    name: night-watch-ansible-{{ nightwatch_version }}
     state: present
   become: yes
 
