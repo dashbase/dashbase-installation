@@ -3,13 +3,10 @@ In this repo, we've provided the basics for you to get started deploying Dashbas
 
 ## The Basics
 A Dashbase cluster, at minimum, consists of the following:
-- Dashbase Proxy Service (ingests and parses logs from Filebeat)
 - Dashbase Table(s) (index and search)
 - Dashbase Web UI (UI for troubleshooting)
 - Dashbase API Service
 - Etcd (cluster discovery)
-- Apache Kafka (commit queue)
-- Apache ZooKeeper (used by Kafka)
 
 Everything is dockerized and is packaged using [Helm](https://github.com/helm/helm#helm-in-a-handbasket).
 
@@ -52,44 +49,34 @@ Want to first try out Dashbase on your laptop? Give the following steps a try, t
     api-694d9d546-q4d59     0/1    ContainerCreating  0         0s
     etcd-0                  0/1    Pending            0         0s
     grafana-0               0/1    ContainerCreating  0         0s
-    kafka-0                 0/1    ContainerCreating  0         0s
     prometheus-0            0/1    Pending            0         0s
-    proxy-748c9bf56b-htksf  0/1    ContainerCreating  0         0s
     table-logs-p0-0         0/1    Pending            0         0s
     web-0                   0/1    Pending            0         0s
-    zookeeper-0             0/1    Pending            0         0s
 
     ==> v1/Service
     NAME                 TYPE       CLUSTER-IP      EXTERNAL-IP  PORT(S)            AGE
     api                  ClusterIP  10.106.71.134   <none>       8081/TCP,9876/TCP  0s
     etcd-cluster-client  ClusterIP  10.103.191.197  <none>       2379/TCP           0s
     grafana              ClusterIP  10.105.202.0    <none>       3000/TCP           0s
-    kafka                ClusterIP  None            <none>       8080/TCP,9092/TCP  0s
-    kafka-bootstrap      ClusterIP  10.111.96.111   <none>       9092/TCP           0s
     prometheus           ClusterIP  10.97.3.254     <none>       9090/TCP           0s
-    proxy                ClusterIP  10.98.208.117   <none>       8081/TCP,9200/TCP  0s
     table-logs           ClusterIP  10.103.74.215   <none>       8081/TCP,7888/TCP  0s
     web                  ClusterIP  10.102.219.65   <none>       8081/TCP,8080/TCP  0s
-    zookeeper            ClusterIP  10.106.120.126  <none>       8080/TCP,2181/TCP  0s
 
     ==> v1beta1/Deployment
     NAME   READY  UP-TO-DATE  AVAILABLE  AGE
     api    0/1    1           0          0s
-    proxy  0/1    1           0          0s
 
     ==> v1beta1/Ingress
     NAME     HOSTS                                                                                    ADDRESS  PORTS  AGE
-    ingress  grafana.127.0.0.1.xip.io,prometheus.127.0.0.1.xip.io,proxy.127.0.0.1.xip.io + 2 more...  80       0s
+    ingress  grafana.127.0.0.1.xip.io,prometheus.127.0.0.1.xip.io,web.127.0.0.1.xip.io + 1 more...  80       0s
 
     ==> v1beta1/StatefulSet
     NAME           READY  AGE
     etcd           0/1    0s
     grafana        0/1    0s
-    kafka          0/1    0s
     prometheus     0/1    0s
     table-logs-p0  0/1    0s
     web            0/1    0s
-    zookeeper      0/1    0s
     ```
 5. Periodically check and wait for all the pods to be in `Running` state.
     ```bash
@@ -97,11 +84,8 @@ Want to first try out Dashbase on your laptop? Give the following steps a try, t
     NAME                                                     READY   STATUS              RESTARTS   AGE
     api-694d9d546-q4d59                                      1/1     Running             0          1m
     etcd-0                                                   1/1     Running             0          1m
-    kafka-0                                                  1/1     Running             0          1m
-    proxy-748c9bf56b-htksf                                   1/1     Running             0          1m
     table-logs-p0-0                                          1/1     Running             0          1m
     web-0                                                    1/1     Running             0          1m
-    zookeeper-0                                              1/1     Running             0          1m
     ```
 
 6. Deploy an [NGINX Ingress Controller](https://kubernetes.github.io/ingress-nginx/) so you can access the services without having to port-forward or other shinanigans.
@@ -118,8 +102,6 @@ Want to first try out Dashbase on your laptop? Give the following steps a try, t
     Rules:
       Host                         Path  Backends
       ----                         ----  --------
-      proxy.127.0.0.1.xip.io
-                                      proxy:9200 (10.1.0.192:9200)
       web.127.0.0.1.xip.io
                                       web:8080 (10.1.0.193:8080)
       table-logs.127.0.0.1.xip.io
@@ -165,18 +147,15 @@ Want to first try out Dashbase on your laptop? Give the following steps a try, t
     ```bash
     $ kubectl get pvc --namespace dashbase
     NAME                                       CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS   CLAIM                                         STORAGECLASS   REASON   AGE
-    pvc-391477d5-97a2-11e9-8875-025000000001   10Gi       RWO            Delete           Bound    dashbase/elasticsearch-data-elasticsearch-0   hostpath                18h
     pvc-cc7524d3-979f-11e9-8875-025000000001   10Gi       RWO            Delete           Bound    dashbase/etcd-data-etcd-0                     hostpath                19h
-    pvc-cc7cf3ae-979f-11e9-8875-025000000001   10Gi       RWO            Delete           Bound    dashbase/zookeeper-data-zookeeper-0           hostpath                19h
     pvc-cc8307c2-979f-11e9-8875-025000000001   10Gi       RWO            Delete           Bound    dashbase/grafana-data-grafana-0               hostpath                19h
     pvc-cc93b28e-979f-11e9-8875-025000000001   10Gi       RWO            Delete           Bound    dashbase/web-data-web-0                       hostpath                19h
     pvc-ccc1c136-979f-11e9-8875-025000000001   10Gi       RWO            Delete           Bound    dashbase/prometheus-data-prometheus-0         hostpath                19h
     pvc-ccd633ba-979f-11e9-8875-025000000001   10Gi       RWO            Delete           Bound    dashbase/table-data-table-logs-p0-0           hostpath                19h
-    pvc-ccd9d286-979f-11e9-8875-025000000001   500Gi      RWO            Delete           Bound    dashbase/kafka-data-kafka-0                   hostpath                19h
 
     # Note: you can pass more than one pvc to the delete command.
-    $ kubectl delete pvc elasticsearch-data-elasticsearch-0
-    persistentvolumeclaim "elasticsearch-data-elasticsearch-0" deleted
+    $ kubectl delete pvc prometheus-data-prometheus-0
+    persistentvolumeclaim "prometheus-data-prometheus-0" deleted
     ```
 
     ```bash

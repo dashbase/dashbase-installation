@@ -1,4 +1,4 @@
-dashbase_version: 0.21.6
+dashbase_version: 0.23.4
 
 # Your license information goes here.
 username:
@@ -20,21 +20,7 @@ services:
   web:
     enabled: true
 
-  kafka:
-    enabled: true
-
-  zookeeper:
-    enabled: true
-
-  proxy:
-    enabled: true
-
-  elasticsearch:
-    enabled: true
-
 tables:
   logs:
-    partitions:
-      0: "0"
     environment:
       JAVA_OPTS: "-Xmx4g -Xms2g"

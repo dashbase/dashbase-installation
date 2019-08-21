@@ -193,37 +193,6 @@ services:
   web:
     enabled: true
 
-  # Dashbase Proxy Service
-  # Disabled by default; stateless service to parse events from Filebeat and send to
-  # a commit queue (Kafka) for tables to ingest from.
-  # Creates a Kubernetes Deployment resource.
-  proxy:
-    enabled: true
-    # Increase the number of replicas to handle .
-    replicas: 1
-  
-  # Kafka Service
-  # Disabled by default; deploys Kafka broker(s) used by Dashbase as a commit queue.
-  # Creates a Kubernetes StatefulSet resource.
-  kafka:
-    enabled: true
-    # Replicas in this case control the number of brokers.
-    replicas: 1
-    # List of example environment variables that can be set for the Kafka image.
-    #environment:
-      #KAFKA_LOG_RETENTION_HOURS: "1"
-      #KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "3"
-      #KAFKA_DEFAULT_REPLICATION_FACTOR: "1"
-      #KAFKA_LOG_RETENTION_BYTES: "1000000000000"
-      #KAFKA_ADVERTISED_LISTENERS: INSIDE://:9092
-      #KAFKA_HEAP_OPTS: "-Xmx4g -Xms4g -XX:NewSize=2g"
-
-  # ZooKeeper
-  # Disabled by default; deploys a ZooKeeper used by Kafka. Creates a Kubernetes
-  # StatefulSet resource.
-  zookeeper:
-    enabled: true
-
   #----------------------------- Optional Services -----------------------------
   # Prometheus
   # Internal Prometheus pre-configured to scrape metrics from all Dashbase services
@@ -268,14 +237,8 @@ services:
 # Kubernetes StatefulSet resources.
 tables:
   #----------------------------- Example Table -----------------------------
-  # An example of a table called 'sample' with a corresponding Kafka topic.
+  # An example of a table called 'sample' with cq architecture.
   #sample:
-    # Mapping of table partition(s) to Kafka partitions. To scale a table for
-    # increased ingestion, add another partition and scale the Kafka topic.
-    #partitions:
-      #0: "0"
-      #1: "1"
-    
     # Set the storage size in Gi for the disk allocated per partition.
     #storage:
       #size: 1000Gi

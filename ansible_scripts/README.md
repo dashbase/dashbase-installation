@@ -46,7 +46,7 @@
      Filebeat deployment is almost identical to telegraf's. Please refer to examples above for inventory file
      and ansible-playbook extra variables
 
-     0) update value of "proxy_url" in deploy_filebeat.yml with correct value
+     0) update value of "table_url" in deploy_filebeat.yml with correct value
 
      1) populate the inventory file
 
