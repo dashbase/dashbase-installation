@@ -239,6 +239,11 @@ tables:
   #----------------------------- Example Table -----------------------------
   # An example of a table called 'sample' with cq architecture.
   #sample:
+    # Set the number of partition for this table. Defaults to '1' if not specified.
+    # Increase the replicas if you want to expand the table, more pods will be created which are sharing the traffic from service `table-sample` with their own disks as storage.
+    # Make sure you have a L7 loadbalancer in front of service `table-sample` And DON'T decrease replicas.
+    # replicas: 1
+
     # Set the storage size in Gi for the disk allocated per partition.
     #storage:
       #size: 1000Gi
