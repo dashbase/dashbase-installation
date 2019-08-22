@@ -163,7 +163,7 @@ data:
     ###############################################################################
 
     # ##################################################################################################################
-    # Optional night-watch commans
+    # Optional night-watch commands
     # Notes: It will not work well when you're scrape specified pods on host or have custom multiline configration.
     #
     [[inputs.exec]]
