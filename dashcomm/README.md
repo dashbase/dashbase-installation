@@ -9,7 +9,7 @@
 
         >cat inventory
         
-        [filebeat]
+        [freeswitch]
         192.168.131.98
         192.84.16.128
 
