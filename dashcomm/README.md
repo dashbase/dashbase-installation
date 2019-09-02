@@ -13,7 +13,7 @@
         192.168.131.98
         192.84.16.128
 
-     3) run the playbook
+     2) run the playbook
 
        >ansible-playbook -i inventory deploy_telegraf.yml -e "index=freeswitch app_name=freeswitch"
 
