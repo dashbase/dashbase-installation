@@ -6,13 +6,13 @@
 - name: Copy filebeat package
   copy:
     src: 
-         filebeat-{{ filebeat_version }}-amd64.deb
-    dest: /opt/scripts/filebeat-{{ filebeat_version }}-amd64.deb
+         filebeat-{{ filebeat_version }}-x86_64.rpm
+    dest: /opt/scripts/filebeat-{{ filebeat_version }}-x86_64.rpm
     owner: root
     group: root
     mode: 0644
 
 - name: Install Filebeat
-  apt:
-    deb: /opt/scripts/filebeat-{{ filebeat_version }}-amd64.deb
+  yum:
+    name: /opt/scripts/filebeat-{{ filebeat_version }}-x86_64.rpm
     state: present

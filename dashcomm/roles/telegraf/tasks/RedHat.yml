@@ -21,15 +21,15 @@
 - name: Copy telegraf package
   copy:
     src: 
-         telegraf_1.10.4-1_amd64.deb
-    dest: /opt/scripts/telegraf_1.10.4-1_amd64.deb
+         telegraf_1.10.4-1_x86_64.rpm
+    dest: /opt/scripts/telegraf_1.10.4-1_x86_64.rpm
     owner: root
     group: root
     mode: 0644
 
 - name: Install Telegraf
-  apt:
-    deb: /opt/scripts/telegraf_1.10.4-1_amd64.deb
+  yum:
+    name: /opt/scripts/telegraf_1.10.4-1_x86_64.rpm
     state: present
     
 - name: Change User of Telegraf Log Directory
@@ -63,15 +63,15 @@
 
 - name: Copy night-watch rpm
   copy:
-    src: night-watch_{{ nightwatch_version }}-rc4_Linux_64-bit.deb
-    dest: /opt/scripts/night-watch_{{ nightwatch_version }}-rc4_Linux_64-bit.deb
+    src: night-watch_{{ nightwatch_version }}-rc4_Linux_64-bit.rpm
+    dest: /opt/scripts/night-watch_{{ nightwatch_version }}-rc4_Linux_64-bit.rpm
     owner: root
     group: root
     mode: 0644
 
 - name: Install night-watch
-  apt:
-    deb: /opt/scripts/night-watch_{{ nightwatch_version }}-rc4_Linux_64-bit.deb
+  yum:
+    name: /opt/scripts/night-watch_{{ nightwatch_version }}-rc4_Linux_64-bit.rpm
     state: present
 
 - name: Retart Telegraf Service
