@@ -1,0 +1,50 @@
+---
+- name: "Debian | Ensure the system can use the HTTPS transport for APT"
+  stat:
+    path: /usr/lib/apt/methods/https
+  register: apt_https_transport
+
+- name: "Debian | Install APT HTTPS transport"
+  apt:
+    name: "apt-transport-https"
+    #  When you see some Error like:
+    #     The method driver /usr/lib/apt/methods/https could not be found.
+    #  Need set update_cache: no (default:yes)
+    # update_cache: no
+    state: present
+  when:
+    - not apt_https_transport.stat.exists
+  become: yes
+
+- name: "Debian | Add Repo key"
+  apt_key:
+    url: "http://artifacts.dashbase.io/dashbase_repo.key"
+    state: present
+  become: yes
+
+- name: "Debian | Add S3 Repo"
+  apt_repository:
+    repo: "deb http://artifacts.dashbase.io/apt stable main"
+    filename: "dashbase-nightwatch"
+    state: present
+  become: yes
+
+- name: "Debian | Install telegraf package"
+  apt:
+    deb: "https://dl.influxdata.com/telegraf/releases/telegraf_{{ telegraf_agent_version }}-{{ telegraf_agent_version_patch }}_amd64.deb"
+  notify: "Restart Telegraf"
+  become: yes
+
+- name: "Debian | Install NightWatch package"
+  apt:
+    name: night-watch-ansible={{ nightwatch_version }}
+    update_cache: yes
+  become: yes
+
+- name: "Debian | Install cron"
+  apt:
+    name: "cron"
+    force: True
+  become: yes
+  when:
+    - prometheus_pushgateway_enable

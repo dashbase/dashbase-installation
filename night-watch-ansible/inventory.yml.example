@@ -1,0 +1,44 @@
+all:
+  children:
+    nightwatch:
+      hosts:
+        # logmatters-producer-0.logmatters-producer.xxx.svc.cluster.local:
+        # logmatters-producer-1.logmatters-producer.xxx.svc.cluster.local:
+        {YOUR_HOST_IP}:
+      vars:
+        nightwatch_version: 1.1.1-rc4
+
+        # ansible_user: root
+        ansible_user: root
+        # ansible_ssh_pass: ******
+        ansible_ssh_pass: root
+        # ansible_ssh_private_key_file: ~/.ssh/key.pem
+        # ansible_ssh_private_key_file: {YOUR_SSH_KEY_FILE}
+
+        telegraf_global_tags:
+          - tag_name: "table"
+            #tag_value: "logmatters"
+            tag_value: "freeswitch-ansible"
+        Telegraf_agent_output:
+
+          - type: prometheus_client
+            config:
+              - listen = ":29273"
+              - expiration_interval = "60s"
+
+        telegraf_plugins_default:
+          - plugin: exec
+            config:
+              # - commands = ["/usr/bin/night-watch watch-append -p /data/*.log"]
+              - commands = ["/usr/bin/night-watch watch-append -p /var/log/freeswitch/freeswitch.log"]
+              - timeout = "10s"
+              - data_format = "influx"
+
+          - plugin: http
+            config:
+              - urls = ["http://localhost:5066/stats"]
+              - data_format = "json"
+
+        prometheus_pushgateway_enable: True
+        # prometheus_pushgateway_url: https://pushgateway.127.0.0.1.xip.io/metrics/job/filebeat/instance/{{ ansible_hostname }}
+        prometheus_pushgateway_url: https://pushgateway.zbtest.dashbase.io/metrics/job/filebeat/instance/{{ ansible_hostname }}

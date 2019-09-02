@@ -1,0 +1,3 @@
+- name: Check Connect Dashbase_Proxy {{ dashbase_proxy }}
+  uri:
+    url: "{{ dashbase_proxy }}"

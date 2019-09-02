@@ -1,0 +1,35 @@
+---
+# description: RedHat specific installation
+
+
+
+
+- name: " RedHat | Add yum repo"
+  yum_repository:
+    name: night-watch-ansible
+    description: Dashbase Repository - EPEL
+    baseurl: http://artifacts.dashbase.io/rhel
+    enabled: true
+    gpgcheck: yes
+    gpgkey: http://artifacts.dashbase.io/dashbase_repo.key
+
+
+- name: " RedHat | Install Telegraf package"
+  yum:
+    name: "https://dl.influxdata.com/telegraf/releases/telegraf-{{ telegraf_agent_version }}-{{ telegraf_agent_version_patch }}.x86_64.rpm"
+    state: present
+  become: yes
+
+- name: " RedHat | Install NightWatch package"
+  yum:
+    name: night-watch-ansible-{{ nightwatch_version }}
+    state: present
+  become: yes
+
+- name: "RedHat | Install cron package"
+  yum:
+    name: "crontabs"
+  become: yes
+  when:
+    - prometheus_pushgateway_enable
+

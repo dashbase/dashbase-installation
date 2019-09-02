@@ -1,6 +1,6 @@
 - type: log
   paths:
-    - /var/log/syslog
+    - /var/log/freeswitch
   fields:
     _message_parser:
       type: grok

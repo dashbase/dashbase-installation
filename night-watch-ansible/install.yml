@@ -1,0 +1,6 @@
+---
+
+- name: install nightwatch
+  hosts: nightwatch
+  roles:
+    - install

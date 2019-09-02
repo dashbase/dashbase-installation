@@ -9,11 +9,11 @@
 
         >cat inventory_syslog
 
-
+```
 [syslog_hosts]
 192.168.131.98
 192.84.16.128
-
+```
 
      2) create app specific "app_name_nw.yml" file and place it under roles/telegraf/templates/configs/<app_name_nw.yml>
   
