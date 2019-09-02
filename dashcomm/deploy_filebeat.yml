@@ -1,6 +1,10 @@
 ---
 - name: Transfer and execute a script.
+<<<<<<< HEAD
   hosts: "freeswitch"
+=======
+  hosts: "filebeat"
+>>>>>>> dashcomm
   become: yes
   become_method: sudo
   roles:
