@@ -9,11 +9,19 @@
 
         >cat inventory
         
+<<<<<<< HEAD
         [freeswitch]
         192.168.131.98
         192.84.16.128
 
      2) run the playbook
+=======
+        [filebeat]
+        192.168.131.98
+        192.84.16.128
+
+     3) run the playbook
+>>>>>>> tune
 
        >ansible-playbook -i inventory deploy_telegraf.yml -e "index=freeswitch app_name=freeswitch"
 
@@ -33,5 +41,10 @@
      1) populate the inventory file
 
      2) run the playbook
+<<<<<<< HEAD
+=======
+
+       >ansible-playbook -i inventory deploy_filebeat.yml -e "index=freeswitch app_name=freeswitch"
+>>>>>>> tune
 
        >ansible-playbook -i inventory deploy_filebeat.yml -e "index=freeswitch app_name=freeswitch"
