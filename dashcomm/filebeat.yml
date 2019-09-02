@@ -1,3 +1,5 @@
+filebeat.registry_flush: 30s
+filebeat.registry.flush: 30s
 filebeat.prospectors:
 - paths:
    - /var/log/freeswitch/freeswitch.log
