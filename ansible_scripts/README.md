@@ -53,6 +53,7 @@
      2) create app specific filebeat "yml" file and place it under roles/filebeat/templates/configs/<app_name.yml>
         Example of filebeat "yml" file with two paths:
 
+
         - type: log
           paths:
             - /var/log/syslog
