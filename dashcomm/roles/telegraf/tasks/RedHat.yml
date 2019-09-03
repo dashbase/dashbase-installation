@@ -4,7 +4,9 @@
     app_name_list: "{{ app_name.split(',') }}"
 
 - name: Install cURL
-  apt: pkg=curl state=latest
+  yum:
+    name: curl
+    state: present
     
 - name: Create Directories
   file:
@@ -20,9 +22,8 @@
 
 - name: Copy telegraf package
   copy:
-    src: 
-         telegraf_1.10.4-1_x86_64.rpm
-    dest: /opt/scripts/telegraf_1.10.4-1_x86_64.rpm
+    src: telegraf-1.10.4-1.x86_64.rpm
+    dest: /opt/scripts/telegraf-1.10.4-1.x86_64.rpm
     owner: root
     group: root
     mode: 0644
@@ -34,7 +35,7 @@
 
 - name: Install Telegraf
   yum:
-    name: /opt/scripts/telegraf_1.10.4-1_x86_64.rpm
+    name: /opt/scripts/telegraf-1.10.4-1.x86_64.rpm
     state: present
     
 - name: Change User of Telegraf Log Directory
