@@ -34,5 +34,4 @@
 
      2) run the playbook
 
-       >ansible-playbook -i inventory deploy_filebeat.yml -e "index=freeswitch app_name=freeswitch"
-
+       >ansible-playbook -i inventory_syslog deploy_filebeat.yml -e "index=applogs app_name=syslog"
