@@ -54,4 +54,4 @@ Configure FreeSWITCH machines' default user have permission to use `sudo` and ca
 
 #### Deploy Ansible & Filebeat 
 
-Go ahead to [Deploy Ansible & Filebeat](ansible)
+Go ahead to [Deploy Ansible & Filebeat](ansible/README.md)
