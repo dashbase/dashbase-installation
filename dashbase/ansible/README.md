@@ -2,26 +2,45 @@
 
 ##### TO CONFIGURE DASHBASE AGNET #####
 
-     0) update value of "pushgateway_url" in deploy.yml with correct value
+     0) Update value of "pushgateway_url" in deploy.yml with correct value.
 
-     1) update value of "proxy_url" in deploy_filebeat.yml with correct host:port(port is default to `9200`).
+     1) Update value of "proxy_url" in deploy.yml with correct host:port(port is default to `9200`).
 
-     2) create app specific "app_name_nw.yml" file and place it under roles/telegraf/templates/configs/<app_name_nw.yml>
+     2) Create app specific "app_name_nw.yml" file and place it under roles/telegraf/templates/configs/<app_name_nw.yml>
 
-       multiple paths can be specified in the same app_name_nw.yml file
-       Example with two paths:
+        Multiple paths can be specified in the same app_name_nw.yml file:
 
        >cat roles/telegraf/templates/configs/syslog_nw.yml
 
-        - paths: ["/var/log/syslog"]        # path to the logs, can be glob pattern
+        - paths: ["/var/log/syslog"]                          # path to the logs, can be glob pattern
           java_format: "yyyy-MM-dd HH:mm:ss"                  # format of the date of log entries - java_format
           zone: Local                                         # time zone, if Local, then machine time zone will be detected automatically
           exclude_files: ['_']                                # pattern to use to exclude files (optional parameter)
 
+     3) Create app specific filebeat "yml" file and place it under roles/filebeat/templates/configs/<app_name.yml>
+
+       >cat roles/telegraf/templates/configs/syslog_nw.yml
+
+        - type: log
+          paths:
+            - /var/log/syslog
+          fields:
+            _message_parser:
+              type: grok
+              pattern: '%{SYSLOGTIMESTAMP:timestamp} (?:%{SYSLOGFACILITY} )?%{SYSLOGHOST:logsource:meta} %{SYSLOGPROG}: %{GREEDYDATA:message}'
+            hostname: {{ ansible_hostname }}
+          multiline.pattern: ^\[
+          multiline.negate: true
+          multiline.match: after
+          close_inactive: 90s
+          harvester_limit: 5000
+          scan_frequency: 1s
+          symlinks: true
+          clean_removed: true
+
 ##### TO DEPLOY DASHBASE AGENT #####
 
-     1) populate the inventory file
-        Example:
+     1) Populate the inventory file, example:
 
         >cat inventory_syslog
 
@@ -30,12 +49,12 @@
         192.84.16.128
 
         ; See further configurations in https://docs.ansible.com/ansible/latest/user_guide/intro_inventory.html
-        ; [freeswitch:vars]
+        ; [syslog_hosts:vars]
         ; ansible_user=admin
 
-     2) run the playbook
+     2) Run the playbook
 
-       >ansible-playbook -i inventory_syslog deploy_deploy.yml -e "index=applogs app_name=syslog"
+       >ansible-playbook -i inventory_syslog deploy.yml -e "index=applogs app_name=syslog"
 
        Playbook takes these extra variables with -e (or will prompt for):
 

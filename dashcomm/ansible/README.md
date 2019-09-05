@@ -1,15 +1,14 @@
-# Ansible Playbooks to deploy Dashcomm agent for freeswitch (DAFS)
+# Ansible Playbooks to deploy Dashcomm agent for FreeSWITCH (DAFS)
 
 ##### TO CONFIGURE DASHCOMM AGENT #####
 
-     0) update value of "pushgateway_url" in deploy.yml with correct value
+     0) Update value of "pushgateway_url" in deploy.yml with correct value.
 
-     1) update value of "table_url" in deploy_filebeat.yml with correct host:port(port is default to `9200`).
+     1) Update value of "table_url" in deploy.yml with correct host:port(port is default to `9200`).
 
 ##### TO DEPLOY DASHCOMM AGENT #####
 
-     1) populate the inventory file
-        Example:
+     1) Populate the inventory file, example:
 
         >cat inventory
 
@@ -17,7 +16,11 @@
         192.168.131.98
         192.84.16.128
 
-     2) run the playbook
+        ; See further configurations in https://docs.ansible.com/ansible/latest/user_guide/intro_inventory.html
+        ; [freeswitch:vars]
+        ; ansible_user=admin
+
+     2) Run the playbook.
 
        >ansible-playbook -i inventory deploy.yml -e "index=freeswitch app_name=freeswitch"
 
