@@ -1,4 +1,4 @@
-# Ansible Playbooks to deploy filebeat and telegraf
+# Ansible Playbooks to deploy Dashbase agent
 
 ##### TO CONFIGURE DASHBASE AGNET #####
 
@@ -33,7 +33,7 @@
         ; [freeswitch:vars]
         ; ansible_user=admin
 
-     3) run the playbook
+     2) run the playbook
 
        >ansible-playbook -i inventory_syslog deploy_deploy.yml -e "index=applogs app_name=syslog"
 

@@ -1,4 +1,4 @@
-# Ansible Playbooks to deploy filebeat and telegraf
+# Ansible Playbooks to deploy Dashcomm agent for freeswitch (DAFS)
 
 ##### TO CONFIGURE DASHCOMM AGENT #####
 
