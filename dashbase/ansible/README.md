@@ -6,7 +6,7 @@
 
      1) Update value of "proxy_url" in deploy.yml with correct host:port(port is default to `9200`).
 
-     2) Create app specific "app_name_nw.yml" file and place it under roles/telegraf/templates/configs/<app_name_nw.yml>
+     2) Create app specific "app_name_nw.yml" file and place it under roles/telegraf/templates/configs/<app_name_nw.yml>.
 
         Multiple paths can be specified in the same app_name_nw.yml file:
 
@@ -40,9 +40,9 @@
 
 ##### TO DEPLOY DASHBASE AGENT #####
 
-     1) Populate the inventory file, example:
+     0) Populate the inventory file, example:
 
-        >cat inventory_syslog
+       >cat inventory_syslog
 
         [syslog_hosts]
         192.168.131.98
@@ -52,11 +52,11 @@
         ; [syslog_hosts:vars]
         ; ansible_user=admin
 
-     2) Run the playbook
+     1) Run the playbook
 
        >ansible-playbook -i inventory_syslog deploy.yml -e "index=applogs app_name=syslog"
 
-       Playbook takes these extra variables with -e (or will prompt for):
+        Playbook takes these extra variables with -e (or will prompt for):
 
-       index            - name of dashbase index to send logs to
-       app_name         - name(s) of the applications (multiple app names can be given as a comma separated values)
+        index            - name of dashbase index to send logs to
+        app_name         - name(s) of the applications (multiple app names can be given as a comma separated values)

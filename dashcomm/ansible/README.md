@@ -8,7 +8,7 @@
 
 ##### TO DEPLOY DASHCOMM AGENT #####
 
-     1) Populate the inventory file, example:
+     0) Populate the inventory file, example:
 
         >cat inventory
 
@@ -20,7 +20,7 @@
         ; [freeswitch:vars]
         ; ansible_user=admin
 
-     2) Run the playbook.
+     1) Run the playbook.
 
        >ansible-playbook -i inventory deploy.yml -e "index=freeswitch app_name=freeswitch"
 
