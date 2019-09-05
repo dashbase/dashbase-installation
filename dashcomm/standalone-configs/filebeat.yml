@@ -16,18 +16,18 @@ filebeat.prospectors:
     hostname: ${HOSTNAME}
     _message_parser:
       type: multi
-      parsers:
-        freeswitch:
+      parsers_list:
+      - name: freeswitch
+        config:
           type: grok
           pattern: "(?:%{UUID:uuid:text} |)%{TIMESTAMP_ISO8601:timestamp:datetime:yyyy-MM-dd HH:mm:ss.SSSSSS} \\[%{WORD:level:meta}\\] %{JAVAFILE:source:meta}:%{INT:line:int} %{GREEDYDATA:message}"
-        sip:
+      - name: sip
+        config:
           type: sip
-        dialplan:
+      - name: universal
+        config:
           type: grok
-          pattern: "(?:%{UUID:uuid:text} |)Dialplan: %{GREEDYDATA:message}"
-        execute:
-          type: grok
-          pattern: "(?:%{UUID:uuid:text} |)EXECUTE %{GREEDYDATA:message}"
+          pattern: "(?:%{UUID:uuid:text} |)%{GREEDYDATA:message}"
 
 queue.mem:
   events: 180000
