@@ -8,7 +8,7 @@
 
      2) Create app specific "app_name_nw.yml" file and place it under roles/telegraf/templates/configs/<app_name_nw.yml>.
 
-        Multiple paths can be specified in the same app_name_nw.yml file:
+        Multiple paths can be specified in the same app_name.yml file:
 
        >cat roles/telegraf/templates/configs/syslog_nw.yml
 
@@ -19,7 +19,7 @@
 
      3) Create app specific filebeat "yml" file and place it under roles/filebeat/templates/configs/<app_name.yml>
 
-       >cat roles/telegraf/templates/configs/syslog_nw.yml
+       >cat roles/filebeat/templates/configs/syslog.yml
 
         - type: log
           paths:

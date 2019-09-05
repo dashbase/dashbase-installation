@@ -1,4 +1,4 @@
-# Ansible Playbooks to deploy Dashcomm agent for FreeSWITCH (DAFS)
+# Ansible Playbooks to deploy Dashcomm Agent for FreeSWITCH (DAFS)
 
 ##### TO CONFIGURE DASHCOMM AGENT #####
 
@@ -23,8 +23,3 @@
      1) Run the playbook.
 
        >ansible-playbook -i inventory deploy.yml -e "index=freeswitch app_name=freeswitch"
-
-       Playbook takes these extra variables with -e (or will prompt for):
-
-       index            - name of dashbase index to send logs to
-       app_name         - name(s) of the applications (multiple app names can be given as a comma separated values)
