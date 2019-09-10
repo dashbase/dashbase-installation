@@ -1,1 +1,1 @@
-- paths: ["/var/log/freeswitch/freeswitch.log"]
+- paths: ["/var/log/freeswitch/freeswitch.log", "/usr/local/freeswitch/log/freeswitch.log"]
