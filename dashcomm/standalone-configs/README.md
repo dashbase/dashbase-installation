@@ -32,7 +32,7 @@ Night-Watch is required to logs stats, you can set it up with the following step
 2. Install night-watch on your host. (Verify by executing `night-watch` command)
 3. Copy the [freeswitch-nw.yml](freeswitch-nw.yml) to `/etc/telegraf/configs/freeswitch_nw.yml` on your host.
 
-**Night-Watch is directly used by Telegraf, you can regard the installation as done when you can use `night-watch` command.**
+**Night-Watch is directly used by Telegraf, you can regard the installation as done when you can use `night-watch` command and the config file is present.**
 
 #### Advanced Configure in [freeswitch-nw.yml](freeswitch-nw.yml)
 * You can change `paths` if you have a custom path storing FreeSWITCH logs.
