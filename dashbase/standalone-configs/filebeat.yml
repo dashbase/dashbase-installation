@@ -2,32 +2,17 @@ filebeat.registry_flush: 30s
 filebeat.registry.flush: 30s
 filebeat.prospectors:
 - paths:
-   - /var/log/freeswitch/freeswitch.log
+   - /TO/CHANGE/YOUR/LOCAL/LOG/PATH
   input_type: log
-  multiline.pattern: '^(?:[A-Fa-f0-9]{8}-(?:[A-Fa-f0-9]{4}-){3}[A-Fa-f0-9]{12} )?\d{4}-\d{2}-\d{2}|^(?:[A-Fa-f0-9]{8}-(?:[A-Fa-f0-9]{4}-){3}[A-Fa-f0-9]{12} )?EXECUTE|^(?:[A-Fa-f0-9]{8}-(?:[A-Fa-f0-9]{4}-){3}[A-Fa-f0-9]{12} )?Dialplan|^recv|^send'
-  multiline.negate: true
-  multiline.match: after
   close_inactive: 90s
   harvester_limit: 5000
   scan_frequency: 1s
   symlinks: true
   clean_removed: true
   fields:
-    hostname: ${HOSTNAME}
     _message_parser:
-      type: multi
-      parsers_list:
-      - name: freeswitch
-        config:
-          type: grok
-          pattern: "(?:%{UUID:uuid:text} |)%{TIMESTAMP_ISO8601:timestamp:datetime:yyyy-MM-dd HH:mm:ss.SSSSSS} \\[%{WORD:level:meta}\\] %{JAVAFILE:source:meta}:%{INT:line:int} %{GREEDYDATA:message}"
-      - name: sip
-        config:
-          type: sip
-      - name: universal
-        config:
-          type: grok
-          pattern: "(?:%{UUID:uuid:text} |)%{GREEDYDATA:message}"
+      type: grok
+      pattern: '%{GREEDYDATA:message}'
 
 queue.mem:
   events: 180000
@@ -48,12 +33,12 @@ processors:
 setup.template.enabled: false
 
 output.elasticsearch:
-  hosts: ["table-freeswitch:7888"]
-  index: "freeswitch"
+  hosts: ["/TO/CHANGE/YOUR/DASHBASE/(TABLE/PROXY)/HOST/WITH/PORT"]
+  index: "/TO/CHANGE/YOUR/DASHBASE/TABLE/NAME"
   bulk_max_size: 3000
   worker: 30
   compression_level: 5
-  protocol: "http"
+  protocol: "/TO/CHANGE/YOUR/DASHBASE/(TABLE/PROXY)/PROTOCOL"
 
 http.enabled: true
 http.host: 127.0.0.1
