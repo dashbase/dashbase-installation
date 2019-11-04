@@ -1,21 +1,18 @@
 #!/bin/bash
 # Init environment
 BASEDIR="$(cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd)"
-RULES=$(ls $BASEDIR/alerts)
 
-if [ ! -d $BASEDIR/prometheus-rules ]; then
-  mkdir $BASEDIR/prometheus-rules
-fi
+RULES=$(ls $BASEDIR/prometheus-alerts | grep yml)
 
 case "$1" in
   "generate")
-    cp -rf $BASEDIR/alerts $BASEDIR/alerts-template
+    cp -rf $BASEDIR/prometheus-alerts $BASEDIR/alerts-template
     for filename in $RULES
     do
        alerts_name=$(echo $filename | cut -d . -f1)
-       helm template $BASEDIR/alerts-template --set alert_name=$alerts_name --set alert_path=alerts/$alerts_name.yml > $BASEDIR/prometheus-rules/$alerts_name.yml
+       helm template $BASEDIR/alerts-template --set alert_name=$alerts_name --set alert_path=prometheus-alerts/$alerts_name.yml > $BASEDIR/prometheus-operator-rules/$alerts_name.yml
     done
-    rm -rf $BASEDIR/alerts-template/alerts
+    rm -rf $BASEDIR/alerts-template/prometheus-alerts
     exit 0;
   ;;
 
@@ -26,18 +23,18 @@ case "$1" in
       echo "Test should be run with K8S and Prometheus Operator"
       exit 1
     else
-      cp -rf $BASEDIR/alerts alerts-template
+      cp -rf $BASEDIR/prometheus-alerts alerts-template
       for filename in $RULES
       do
          alerts_name=$(echo $filename | cut -d . -f1)
-         helm template $BASEDIR/alerts-template --set alert_name=$alerts_name --set alert_path=alerts/$alerts_name.yml | kubectl create --dry-run=true --validate=true -f -
+         helm template $BASEDIR/alerts-template --set alert_name=$alerts_name --set alert_path=prometheus-alerts/$alerts_name.yml | kubectl create --dry-run=true --validate=true -f -
       done
-      rm -rf alerts-template/alerts
+      rm -rf alerts-template/prometheus-alerts
       exit 0;
     fi
   ;;
   "--help")
-    printf -- 'usage: \n';
+    printf -- 'Usage: \n';
     printf -- 'generate -- Generate Prometheus Operator rules.\n';
     printf -- 'test -- Run test for Prometheus Operator rules.\n';
     exit 0;
