@@ -1,5 +1,5 @@
 - paths:
-    - /var/log/asterisk/full
+    - /var/log/asterisk/full*
   type: log
   multiline.pattern: '^\['
   multiline.negate: true
@@ -12,6 +12,6 @@
   fields:
     _message_parser:
       type: grok
-      pattern: "\\[%{TIMESTAMP_ISO8601:timestamp:datetime:yyyy-MM-dd HH:mm:ss}\\] %{WORD:level:meta}\\[%{INT:lwp:int}\\] %{JAVAFILE:source:meta}: %{GREEDYDATA:message}"
+      pattern: "\\[%{SYSLOGTIMESTAMP:timestamp:datetime:MMM ppd HH:mm:ss}\\] %{WORD:level:meta}\\[%{INT:lwp:int}\\] %{JAVAFILE:source:meta}: %{GREEDYDATA:message}"
       messageParser:
         type: sip
