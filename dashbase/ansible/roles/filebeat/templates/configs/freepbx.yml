@@ -11,10 +11,14 @@
   clean_removed: true
   fields:
     _message_parser:
-      type: grok
-      pattern: "\\[%{TIMESTAMP_ISO8601:timestamp:datetime:yyyy-MM-dd HH:mm:ss}\\] %{WORD:level:meta}\\[%{INT:lwp:int}\\] %{JAVAFILE:source:meta}: %{GREEDYDATA:message}"
-      messageParser:
-        type: sip
+      type: multi
+      applyAll: 'true'
+      parsers:
+        grok:
+          type: grok
+          pattern: "\\[%{TIMESTAMP_ISO8601:timestamp:datetime:yyyy-MM-dd HH:mm:ss}\\] %{WORD:level:meta}\\[%{INT:lwp:int}\\] %{JAVAFILE:source:meta}: %{GREEDYDATA:message}"
+        sip:
+          type: sip
 
 - paths:
     - /var/log/asterisk/freepbx.log
