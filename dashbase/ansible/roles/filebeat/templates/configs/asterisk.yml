@@ -16,6 +16,6 @@
       parsers:
         grok:
           type: grok
-          pattern: "\\[%{SYSLOGTIMESTAMP:timestamp:datetime:MMM ppd HH:mm:ss}\\] %{WORD:level:meta}\\[%{INT:lwp:int}\\] %{JAVAFILE:source:meta}: %{GREEDYDATA:message}"
+          pattern: "\\[%{SYSLOGTIMESTAMP:timestamp:datetime:MMM ppd HH:mm:ss}\\] %{WORD:level:meta}\\[%{INT:lwp:int}\\](\\[%{DATA:callid:text}\\])? %{JAVAFILE:source:meta}: %{GREEDYDATA:message}"
         sip:
           type: sip
