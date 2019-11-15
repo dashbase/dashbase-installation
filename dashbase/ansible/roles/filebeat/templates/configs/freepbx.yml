@@ -15,8 +15,14 @@
       applyAll: 'true'
       parsers:
         grok:
-          type: grok
-          pattern: "\\[%{TIMESTAMP_ISO8601:timestamp:datetime:yyyy-MM-dd HH:mm:ss}\\] %{WORD:level:meta}\\[%{INT:lwp:int}\\](\\[%{DATA:callid:text}\\])? %{JAVAFILE:source:meta}: %{GREEDYDATA:message}"
+          type: multi
+          parsers:
+            freepbx:
+              type: grok
+              pattern: "\\[%{TIMESTAMP_ISO8601:timestamp:datetime:yyyy-MM-dd HH:mm:ss}\\] %{WORD:level:meta}\\[%{INT:lwp:int}\\](\\[%{DATA:callid:text}\\])? %{JAVAFILE:source:meta}: %{GREEDYDATA:message}"
+            asterisk:
+              type: grok
+              pattern: "\\[%{SYSLOGTIMESTAMP:timestamp:datetime:MMM ppd HH:mm:ss}\\] %{WORD:level:meta}\\[%{INT:lwp:int}\\](\\[%{DATA:callid:text}\\])? %{JAVAFILE:source:meta}: %{GREEDYDATA:message}"
         sip:
           type: sip
 
