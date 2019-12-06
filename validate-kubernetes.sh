@@ -35,8 +35,13 @@ kubectl auth can-i '*' clusterrolebindings --all-namespaces
 echo -n "Admin permission on priorityclasses: "
 kubectl auth can-i '*' priorityclasses --all-namespaces
 
-## permission required by helm
-#kubectl auth can-i '*' serviceaccounts -n kubes-system
+## permission required by detecting nodes resource
+kubectl auth can-i '*' serviceaccounts -n kubes-system
 
+if kubectl auth can-i list pods --all-namespaces; then
+  echo "You don't have permission to get nodes resources usage, so you need to check the remaining resource manually".
+fi
+
+kubectl get --raw "/api/v1/nodes"
 # check cpu/memory resources remained.
 # Disgarded the label.
