@@ -12,7 +12,7 @@ fi
 echo "Checking permission:"
 
 echo -n "Admin permission in namespace dashbase: "
-kubectl auth can-i '*' '*' -n dashbase;
+kubectl auth can-i '*' '*' -n dashbase
 
 echo -n "Admin permission on namespaces: "
 kubectl auth can-i '*' namespaces --all-namespaces
@@ -42,6 +42,13 @@ if kubectl auth can-i list pods --all-namespaces; then
   echo "You don't have permission to get nodes resources usage, so you need to check the remaining resource manually".
 fi
 
-kubectl get --raw "/api/v1/nodes"
+kubectl get "/api/v1/nodes"
 # check cpu/memory resources remained.
 # Disgarded the label.
+
+if [[ "$CPU" =~ ^.*m ]]; then
+  echo "match"
+else
+
+  echo "unmatch"
+fi

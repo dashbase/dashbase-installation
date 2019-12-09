@@ -12,7 +12,7 @@ kubectl create clusterrolebinding admin-user-binding --clusterrole=cluster-admin
 curl -k https://dashbase-public.s3-us-west-1.amazonaws.com/admindash-sts.yaml -o admindash-sts.yaml
 kubectl apply -f admindash-sts.yaml -n dashbase
 
-# kubectl wait --for=condition=available sts/admindash -n dashbase
+# git
 sleep 100
 
 # create tiller service account in kube-system namespace
