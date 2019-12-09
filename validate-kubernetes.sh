@@ -42,11 +42,11 @@ kubectl auth can-i '*' '*' -n kubes-system
 ## check nodes resources
 function check_node_cpu() {
   if [[ "$2" =~ ^([0-9]+)m$ ]]; then
-    if [[ "${BASH_REMATCH[1]}" -ge "3800" ]]; then
+    if [[ "${BASH_REMATCH[1]}" -ge "7600" ]]; then
       return 0
     fi
   elif [[ "$2" =~ ^([0-9]+)$ ]]; then
-    if [[ "${BASH_REMATCH[1]}" -ge "4" ]]; then
+    if [[ "${BASH_REMATCH[1]}" -ge "8" ]]; then
       return 0
     fi
   else
