@@ -27,7 +27,7 @@ kubectl wait --for=condition=Available deployment --all -n dashbase
 echo "Checking Ingress External IP..."
 if kubectl get svc ingress-nginx-ingress-controller -n dashbase &>/dev/null; then
   EXTERNAL_IP=$(kubectl get svc ingress-nginx-ingress-controller -o=jsonpath='{.status.loadBalancer.ingress[0].ip}' -n dashbase)
-  if [[ $EXTERNAL_IP =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  if [[ -n "$EXTERNAL_IP" ]]; then
     echo "Ingress: External IP is ready"
   else
     echo "Ingress: External IP is not ready"
