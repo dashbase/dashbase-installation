@@ -9,7 +9,7 @@ fi
 
 # check permission
 ## permissions required by dashbase charts
-echo "Checking permission:"
+echo "Checking your RBAC permission:"
 
 echo -n "Admin permission in namespace dashbase: "
 kubectl auth can-i '*' '*' -n dashbase
@@ -35,20 +35,76 @@ kubectl auth can-i '*' clusterrolebindings --all-namespaces
 echo -n "Admin permission on priorityclasses: "
 kubectl auth can-i '*' priorityclasses --all-namespaces
 
-## permission required by detecting nodes resource
-kubectl auth can-i '*' serviceaccounts -n kubes-system
+## permission required by helm
+echo -n "Admin permission on kube-system namespaces(required by helm): "
+kubectl auth can-i '*' '*' -n kubes-system
 
-if kubectl auth can-i list pods --all-namespaces; then
-  echo "You don't have permission to get nodes resources usage, so you need to check the remaining resource manually".
-fi
+## check nodes resources
+function check_node_cpu() {
+  if [[ "$2" =~ ^([0-9]+)m$ ]]; then
+    if [[ "${BASH_REMATCH[1]}" -ge "3800" ]]; then
+      return 0
+    fi
+  elif [[ "$2" =~ ^([0-9]+)$ ]]; then
+    if [[ "${BASH_REMATCH[1]}" -ge "4" ]]; then
+      return 0
+    fi
+  else
+    echo "Can't determine the cpu($2) of node($1)."
+  fi
+  return 1
+}
 
-kubectl get "/api/v1/nodes"
-# check cpu/memory resources remained.
-# Disgarded the label.
+function check_node_memory() {
+  if [[ "$2" =~ ^([0-9]+)Ki?$ ]]; then
+    if [[ "${BASH_REMATCH[1]}" -ge "30000000" ]]; then
+      return 0
+    fi
+  elif [[ "$2" =~ ^([0-9]+)Mi?$ ]]; then
+    if [[ "${BASH_REMATCH[1]}" -ge "30000" ]]; then
+      return 0
+    fi
+  elif [[ "$2" =~ ^([0-9]+)Gi?$ ]]; then
+    if [[ "${BASH_REMATCH[1]}" -ge "30" ]]; then
+      return 0
+    fi
+  else
+    echo "Can't determine the memory($2) of node($1)."
+  fi
 
-if [[ "$CPU" =~ ^.*m ]]; then
-  echo "match"
+  return 1
+}
+
+function check_node() {
+  if ! check_node_cpu "$1" "$2"; then
+    echo "Node $1 doesn't enough cpu resources(4 core at least)."
+    return 0
+  fi
+
+  if ! check_node_memory "$1" "$3"; then
+    echo "Node $1 doesn't enough memory resources(32Gi at least)."
+    return 0
+  fi
+
+  ((AVAIILABLE_NODES++))
+  return 0
+}
+
+echo ""
+echo "Checking kubernetes nodes capacity: "
+AVAIILABLE_NODES=0
+
+# get comma separated nodes info
+# gke-chao-debug-default-pool-a5df0776-588v,3920m,12699052Ki
+for NODE_INFO in $(kubectl get node -o jsonpath='{range .items[*]}{.metadata.name},{.status.capacity.cpu},{.status.capacity.memory}{"\n"}{end}'); do
+  # replace comma with spaces.
+  read -r NODE_NAME NODE_CPU NODE_MEMORY <<<"$(echo "$NODE_INFO" | tr ',' ' ')"
+  check_node "$NODE_NAME" "$NODE_CPU" "$NODE_MEMORY"
+done
+
+echo ""
+if [ $AVAIILABLE_NODES -ge 2 ]; then
+  echo "This cluster is ready for dashbase installation on resources"
 else
-
-  echo "unmatch"
+  echo "This cluster doesn't have enough resources for dashbase installation(2 nodes with each have 8 core and 32 Gi at least.)"
 fi
