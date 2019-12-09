@@ -36,7 +36,7 @@ echo -n "Admin permission on priorityclasses: "
 kubectl auth can-i '*' priorityclasses --all-namespaces
 
 ## permission required by helm
-echo -n "Admin permission on kube-system namespaces(required by helm): "
+echo -n "Admin permission in namespace kube-system(required by helm): "
 kubectl auth can-i '*' '*' -n kubes-system
 
 ## check nodes resources
@@ -91,7 +91,7 @@ function check_node() {
 }
 
 echo ""
-echo "Checking kubernetes nodes capacity: "
+echo "Checking kubernetes nodes capacity..."
 AVAIILABLE_NODES=0
 
 # get comma separated nodes info
