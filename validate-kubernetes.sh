@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 
 # check kubernetes API server is connectable
@@ -77,12 +77,12 @@ function check_node_memory() {
 
 function check_node() {
   if ! check_node_cpu "$1" "$2"; then
-    echo "Node $1 doesn't enough cpu resources(4 core at least)."
+    echo "Node($1) doesn't enough cpu resources(8 core at least)."
     return 0
   fi
 
   if ! check_node_memory "$1" "$3"; then
-    echo "Node $1 doesn't enough memory resources(32Gi at least)."
+    echo "Node($1) doesn't enough memory resources(32Gi at least)."
     return 0
   fi
 
