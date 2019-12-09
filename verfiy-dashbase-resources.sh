@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 # check statefulsets
+echo "Checking Statefulsets pods..."
 for STS_INFO in $(kubectl get statefulsets -o=jsonpath='{range .items[*]}{.metadata.name},{.spec.replicas}{"\n"}{end}' -n dashbase); do
   read -r STS_NAME STS_REPLICAS <<<"$(echo "$STS_INFO" | tr ',' ' ')"
   if [ $STS_REPLICAS -lt 1 ]; then
@@ -19,9 +20,11 @@ for STS_INFO in $(kubectl get statefulsets -o=jsonpath='{range .items[*]}{.metad
 done
 
 # check deployment
+echo "Checking Deployments..."
 kubectl wait --for=condition=Available deployment --all -n dashbase
 
 # check ingress-nginx-ingress-controller svc must have an external ip
+echo "Checking Ingress External IP..."
 if kubectl get svc ingress-nginx-ingress-controller -n dashbase &>/dev/null; then
   EXTERNAL_IP=$(kubectl get svc ingress-nginx-ingress-controller -o=jsonpath='{.status.loadBalancer.ingress[0].ip}' -n dashbase)
   if [[ $EXTERNAL_IP =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
