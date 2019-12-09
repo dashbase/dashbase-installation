@@ -106,5 +106,5 @@ echo ""
 if [ $AVAIILABLE_NODES -ge 2 ]; then
   echo "This cluster is ready for dashbase installation on resources"
 else
-  echo "This cluster doesn't have enough resources for dashbase installation(2 nodes with each have 8 core and 32 Gi at least.)"
+  echo "This cluster doesn't have enough resources for dashbase installation(2 nodes with each have 8 core and 32 Gi at least)."
 fi
