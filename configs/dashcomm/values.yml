@@ -20,6 +20,9 @@ accounts:
 kube-state-metrics:
   enabled: true
 
+presto:
+  enabled: true
+
 default:
   priorityClassName: dashbase-normal-priority
   storage:
