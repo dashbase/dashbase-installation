@@ -9,6 +9,11 @@ else
   PORT="443"
 fi
 
+if ! kubectl get service web -n dashbase &>/dev/null; then
+  echo "Kubernetes service \"web\" is not found, Please check your dashbase installation is ok."
+  exit 1
+fi
+
 # expose web
 if kubectl get service web-lb -n dashbase &>/dev/null; then
   echo "LoadBalancer web-lb is already existed, skip creation."
