@@ -35,3 +35,22 @@ if kubectl get svc ingress-nginx-ingress-controller -n dashbase &>/dev/null; the
 else
   echo "Warning: Ingress is not installed in this namespace."
 fi
+
+# check loadbalancers
+for SERVICE_INFO in $(kubectl get service -o=jsonpath='{range .items[*]}{.metadata.name},{.spec.type},{.status.loadBalancer.ingress[0].ip}{"\n"}{end}' -n dashbase); do
+  read -r SERVICE_NAME SERVICE_TYPE SERVICE_LB_IP <<<"$(echo "$SERVICE_INFO" | tr ',' ' ')"
+  if [ "$SERVICE_TYPE" != "LoadBalancer" ]; then
+    continue
+  fi
+
+  # ingress is one of the loadbalancer, skip here to make the logic clear.
+  if [ "$SERVICE_NAME" == "ingress-nginx-ingress-controller" ]; then
+    continue
+  fi
+
+  if [[ -n "$SERVICE_LB_IP" ]]; then
+    echo "LoadBalancer($SERVICE_NAME): IP is ready."
+  else
+    echo "LoadBalancer($SERVICE_NAME): IP is not ready."
+  fi
+done
