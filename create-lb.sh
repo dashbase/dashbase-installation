@@ -33,17 +33,22 @@ else
 fi
 
 # expose CQ tables only
-for TABLE_NAME in $(kubectl get service -l component=table,type!=lb -o=jsonpath='{.items[*].metadata.name}' -n dashbase); do
-  if kubectl get service "$TABLE_NAME"-lb -n dashbase &>/dev/null; then
-    echo "LoadBalancer $TABLE_NAME-lb is already existed, skip creation."
+for SERVICE_INFO in $(kubectl get service -l component=table -o=jsonpath='{range .items[*]}{.metadata.name},{.spec.type}{"\n"}{end}' -n dashbase); do
+  read -r SERVICE_NAME SERVICE_TYPE <<<"$(echo "$SERVICE_INFO" | tr ',' ' ')"
+  if [ "$SERVICE_TYPE" != "ClusterIP" ]; then
+    continue
+  fi
+
+  if kubectl get service "$SERVICE_NAME"-lb -n dashbase &>/dev/null; then
+    echo "LoadBalancer $SERVICE_NAME-lb is already existed, skip creation."
   else
-    echo "Exposing $TABLE_NAME..."
-    kubectl expose service "$TABLE_NAME" --port=${PORT} --target-port=7888 --name="$TABLE_NAME"-lb --type=LoadBalancer -l type=lb -n dashbase
+    echo "Exposing $SERVICE_NAME..."
+    kubectl expose service "$SERVICE_NAME" --port=${PORT} --target-port=7888 --name="$SERVICE_NAME"-lb --type=LoadBalancer -n dashbase
     echo "Waiting kubernetes to ensure LoadBalancer..."
     while true; do
-      TABLE_LB_IP=$(kubectl get service "$TABLE_NAME"-lb -o=jsonpath='{.status.loadBalancer.ingress[0].ip}' -n dashbase)
+      TABLE_LB_IP=$(kubectl get service "$SERVICE_NAME"-lb -o=jsonpath='{.status.loadBalancer.ingress[0].ip}' -n dashbase)
       if [[ -n "$TABLE_LB_IP" ]]; then
-        echo "$TABLE_NAME exposed to $SCHEMA://$TABLE_LB_IP:$PORT successfully."
+        echo "$SERVICE_NAME exposed to $SCHEMA://$TABLE_LB_IP:$PORT successfully."
         break
       fi
       echo "Wait another 15 seconds to do a next check."
