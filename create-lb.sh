@@ -32,7 +32,6 @@ else
   done
 fi
 
-# expose CQ tables only
 for SERVICE_INFO in $(kubectl get service -l component=table -o=jsonpath='{range .items[*]}{.metadata.name},{.spec.type}{"\n"}{end}' -n dashbase); do
   read -r SERVICE_NAME SERVICE_TYPE <<<"$(echo "$SERVICE_INFO" | tr ',' ' ')"
   if [ "$SERVICE_TYPE" != "ClusterIP" ]; then
