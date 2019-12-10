@@ -22,13 +22,13 @@ else
   kubectl expose service web --port=${PORT} --target-port=8080 --name=web-lb --type=LoadBalancer -l type=lb -n dashbase
   echo "Waiting kubernetes to ensure LoadBalancer..."
   while true; do
-    sleep 5
     WEB_LB_IP=$(kubectl get service web-lb -o=jsonpath='{.status.loadBalancer.ingress[0].ip}' -n dashbase)
     if [[ -n "$WEB_LB_IP" ]]; then
       echo "Web exposed to $SCHEMA://$WEB_LB_IP:$PORT successfully."
       break
     fi
-    echo "Wait another 5 seconds to do a next check."
+    echo "Wait another 15 seconds to do a next check."
+    sleep 15
   done
 fi
 
@@ -41,13 +41,13 @@ for TABLE_NAME in $(kubectl get service -l component=table,type!=lb -o=jsonpath=
     kubectl expose service "$TABLE_NAME" --port=${PORT} --target-port=7888 --name="$TABLE_NAME"-lb --type=LoadBalancer -l type=lb -n dashbase
     echo "Waiting kubernetes to ensure LoadBalancer..."
     while true; do
-      sleep 5
       TABLE_LB_IP=$(kubectl get service "$TABLE_NAME"-lb -o=jsonpath='{.status.loadBalancer.ingress[0].ip}' -n dashbase)
       if [[ -n "$TABLE_LB_IP" ]]; then
         echo "$TABLE_NAME exposed to $SCHEMA://$TABLE_LB_IP:$PORT successfully."
         break
       fi
-      echo "Wait another 5 seconds to do a next check."
+      echo "Wait another 15 seconds to do a next check."
+      sleep 15
     done
   fi
 done
