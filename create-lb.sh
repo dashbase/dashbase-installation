@@ -37,7 +37,7 @@ else
     fi
 
     if [[ $SECONDS_WAITED -ge $LB_CHECK_TIMEOUT ]]; then
-      echo "Warning: Timedout(${LB_CHECK_TIMEOUT}s) waiting LoadBalancer to be ok. Please check the LoadBalancer web-lb manually."
+      echo "Warning: Timed out(${LB_CHECK_TIMEOUT}s) waiting LoadBalancer to be ok. Please check the LoadBalancer web-lb manually."
       break
     fi
     echo "Wait another 15 seconds to do a next check."
@@ -73,7 +73,7 @@ for SERVICE_INFO in $(kubectl get service -l component=table -o=jsonpath='{range
       fi
 
       if [[ $SECONDS_WAITED -ge $LB_CHECK_TIMEOUT ]]; then
-        echo "Warning: Timedout(${LB_CHECK_TIMEOUT}s) waiting LoadBalancer to be ok. Please check the LoadBalancer $SERVICE_NAME-lb manually."
+        echo "Warning: Timed out(${LB_CHECK_TIMEOUT}s) waiting LoadBalancer to be ok. Please check the LoadBalancer $SERVICE_NAME-lb manually."
         break
       fi
 
