@@ -26,8 +26,9 @@ kubectl wait --for=condition=Available deployment --all -n dashbase
 # check ingress-nginx-ingress-controller svc must have an external ip
 echo "Checking Ingress External IP..."
 if kubectl get svc ingress-nginx-ingress-controller -n dashbase &>/dev/null; then
-  EXTERNAL_IP=$(kubectl get svc ingress-nginx-ingress-controller -o=jsonpath='{.status.loadBalancer.ingress[0].ip}' -n dashbase)
-  if [[ -n "$EXTERNAL_IP" ]]; then
+  INGRESS_INFO=$(kubectl get svc ingress-nginx-ingress-controller -o=jsonpath='{.status.loadBalancer.ingress[0].ip},{.status.loadBalancer.ingress[0].hostname}' -n dashbase)
+  read -r INGRESS_IP INGRESS_HOSTNAME <<<"$(echo "$INGRESS_INFO" | tr ',' ' ')"
+  if [[ -n "$INGRESS_IP" ]] || [[ -n "$INGRESS_HOSTNAME" ]]; then
     echo "Ingress: External IP is ready"
   else
     echo "Ingress: External IP is not ready"
@@ -37,8 +38,8 @@ else
 fi
 
 # check loadbalancers
-for SERVICE_INFO in $(kubectl get service -o=jsonpath='{range .items[*]}{.metadata.name},{.spec.type},{.status.loadBalancer.ingress[0].ip}{"\n"}{end}' -n dashbase); do
-  read -r SERVICE_NAME SERVICE_TYPE SERVICE_LB_IP <<<"$(echo "$SERVICE_INFO" | tr ',' ' ')"
+for SERVICE_INFO in $(kubectl get service -o=jsonpath='{range .items[*]}{.metadata.name},{.spec.type},{.status.loadBalancer.ingress[0].ip},{.status.loadBalancer.ingress[0].hostname}{"\n"}{end}' -n dashbase); do
+  read -r SERVICE_NAME SERVICE_TYPE SERVICE_LB_IP SERVICE_LB_HOSTNAME <<<"$(echo "$SERVICE_INFO" | tr ',' ' ')"
   if [ "$SERVICE_TYPE" != "LoadBalancer" ]; then
     continue
   fi
@@ -49,7 +50,9 @@ for SERVICE_INFO in $(kubectl get service -o=jsonpath='{range .items[*]}{.metada
   fi
 
   if [[ -n "$SERVICE_LB_IP" ]]; then
-    echo "LoadBalancer($SERVICE_NAME): IP is ready."
+    echo "LoadBalancer($SERVICE_NAME): IP is ready and is $SERVICE_LB_IP"
+  elif [[ -n "$SERVICE_LB_HOSTNAME" ]]; then
+    echo "LoadBalancer($SERVICE_NAME): IP is ready and is $SERVICE_LB_HOSTNAME"
   else
     echo "LoadBalancer($SERVICE_NAME): IP is not ready."
   fi
