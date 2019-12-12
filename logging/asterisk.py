@@ -7,6 +7,9 @@ if sys.version > '3':
 else:
     import ConfigParser as configparser
 
+########################################################################################################################
+# See source code in https://github.com/apache/tomcat/blob/master/java/org/apache/catalina/util/Strftime.java#L52-L105
+
 PATTERNS = {
     "%a": "EEE",
     "%A": "EEEE",
@@ -107,6 +110,8 @@ def convert_dateformat(pattern):
             buffer += "'"
     return buffer
 
+
+########################################################################################################################
 
 class AsteriskGeneral():
     use_callids = True
