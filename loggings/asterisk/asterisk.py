@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import os
 import sys
+import locale
 
 if sys.version > '3':
     import configparser
@@ -65,7 +66,7 @@ def translate_command(buffer, pattern, index, old_inside):
     else:
         command = PATTERNS.get("%" + first_char, None)
         if not command:
-            print("Found unsupport specifications: %{}".format(first_char))
+            print("Found unsupported specifications: %{}".format(first_char))
             exit(1)
         else:
             if old_inside:
@@ -90,6 +91,7 @@ def convert_dateformat(pattern):
         else:
             if mark:
                 if modified_command:
+                    # don't do anything--we just wanted to skip a char
                     modified_command = False
                     mark = False
                 else:
@@ -103,10 +105,10 @@ def convert_dateformat(pattern):
                     buffer += "'"
                     inside = True
 
-                buffer += char
+                buffer += char if char != "'" else "''"
 
     if len(buffer) > 0:
-        if buffer[-1] != "'" and inside:
+        if inside:
             buffer += "'"
     return buffer
 
@@ -149,7 +151,7 @@ def get_pattern(section):
     return general.get_pattern()
 
 
-def read_file_to_buffer(filename):
+def read_config_file(filename):
     print("Reading file: {}".format(filename))
 
     buffer = ''
@@ -168,19 +170,29 @@ def read_file_to_buffer(filename):
             else:
                 _, file = line.rsplit(maxsplit=2)
                 include_filename = os.path.join(os.path.dirname(filename), file)
-                buffer += read_file_to_buffer(include_filename)
+                buffer += read_config_file(include_filename)
 
 
 if __name__ == '__main__':
-    # TODO
-    #  1. check locale
-    #  2. check general section exists
-    buffer = read_file_to_buffer('logger.conf')
+    if locale.getdefaultlocale()[0] != 'en_US':
+        print("This machine is not in the locale of 'en_US'. This may break the dashbase parsing because Asterisk "
+              "will output log according to the current locale")
 
-    # print(buffer)
+    # TODO input config file path
+    buffer = read_config_file('../logger.conf')
 
-    config = configparser.ConfigParser(interpolation=configparser.Interpolation())
+    try:
+        config = configparser.ConfigParser(interpolation=configparser.Interpolation())
 
-    config.read_string(buffer)
-    pattern = config['general'].get('dateformat')
-    print("Your pattern is: '{}'".format(get_pattern(config['general'])))
+        config.read_string(buffer)
+
+        if 'general' not in config:
+            print("Section 'general' is not found in the config files. "
+                  "These config files are considered as broken ones.")
+            exit(1)
+
+        pattern = config['general'].get('dateformat')
+
+        print("Your pattern is: '{}'".format(get_pattern(config['general'])))
+    except configparser.ParsingError as e:
+        print(e)
