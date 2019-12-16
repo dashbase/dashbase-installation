@@ -2,9 +2,11 @@
 
 #### Limitations
 Asterisk used strftime specifiers in `dateformat` field to format the time(https://wiki.asterisk.org/wiki/display/AST/Logging+Configuration).
+
 This script will handle the `dateformat` field. But it
 1. Doesn't handle Modifier(`%O` and `%E`) in strftime
-   >   Some conversion specifications can be modified by preceding the
+   ```
+       Some conversion specifications can be modified by preceding the
        conversion specifier character by the E or O modifier to indicate
        that an alternative format should be used.  If the alternative format
        or specification does not exist for the current locale, the behavior
@@ -14,10 +16,13 @@ This script will handle the `dateformat` field. But it
        where the effect of the O modifier is to use alternative numeric
        symbols (say, roman numerals), and that of the E modifier is to use a
        locale-dependent alternative representation.
+   ```
+
 
 2. Doesn't support the glibc extensions for conversion specifications. All the additional specifications will be regarded as literal values.
    (e.g. an optional flag and field width may be specified.)
-   >  Glibc notes
+   ```
+     Glibc notes
        Glibc provides some extensions for conversion specifications.  (These
        extensions are not specified in POSIX.1-2001, but a few other systems
        provide similar features.)  Between the '%' character and the
@@ -43,5 +48,6 @@ This script will handle the `dateformat` field. But it
        flag.  If the natural size of the field is smaller than this width,
        then the result string is padded (on the left) to the specified
        width.
-
+   ```
+   
 Ref: http://man7.org/linux/man-pages/man3/strftime.3.html
