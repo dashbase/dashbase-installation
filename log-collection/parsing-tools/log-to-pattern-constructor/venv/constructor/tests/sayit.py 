@@ -1,0 +1,6 @@
+from constructor import sayit
+
+
+def test_say_it():
+    result = shout.shout_and_repeat(' ')
+    assert result == 'Say Something'
