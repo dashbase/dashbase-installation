@@ -1,0 +1,4 @@
+
+pattern: '\[%{GREEDYDATA:timestamp:datetime:yyyy-MM-dd HH:mm:ss}\] %{WORD:level:meta}\[%{INT:lwp:int}\]
+  %{JAVAFILE:source:meta}: %{GREEDYDATA:message}'
+type: grok
