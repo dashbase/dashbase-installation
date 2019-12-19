@@ -9,6 +9,13 @@ import ConfigParser as configparser
 
 ########################################################################################################################
 # See source code in https://github.com/apache/tomcat/blob/master/java/org/apache/catalina/util/Strftime.java#L52-L105
+'''
+    Q/q
+    The subsecond component of a UTC timestamp. The default is milliseconds, %3Q. Valid values are:
+    %3Q = milliseconds, with values of 000-999
+    %6Q = microseconds, with values of 000000-999999
+    %9Q = nanoseconds, with values of 000000000-999999999
+'''
 
 PATTERNS = {
     "%a": "EEE",
@@ -45,6 +52,12 @@ PATTERNS = {
     "%Y": "yyyy",
     "%z": "Z",
     "%Z": "z",
+    "%3q": "SSS",
+    "%6q": "SSSSSS",
+    "%9q": "SSSSSSSSS",
+    "%3Q": "SSS",
+    "%6Q": "SSSSSS",
+    "%9Q": "SSSSSSSSS",
     "%%": "%"
 }
 
@@ -65,7 +78,10 @@ def translate_command(buf, pattern, index, old_inside):
         else:
             buf += quote("%" + first_char, old_inside)
     else:
-        command = PATTERNS.get("%" + first_char, None)
+        if first_char == '3' and pattern[index+1] == 'q':
+            command = PATTERNS.get("%" + first_char+pattern[index+1], None)
+        else:
+            command = PATTERNS.get("%" + first_char, None)
         if not command:
             print("ERROR: Found unsupported specifications: %{}".format(first_char))
             exit(1)
@@ -78,8 +94,7 @@ def translate_command(buf, pattern, index, old_inside):
 
 
 # TODO:
-#   1. Fix pattern like "%.3q"
-#   2. Fix ', ",( ,), [, ] in pattern
+#   1. Fix ', ",( ,), [, ] in pattern
 def convert_dateformat(pattern):
 
     inside = False
@@ -88,6 +103,9 @@ def convert_dateformat(pattern):
     buf = ""
 
     for index, char in enumerate(pattern):
+        if char == 'q' and pattern[index-1] == '3':
+            continue;
+
         if char == '%' and not mark:
             mark = True
         else:
@@ -103,7 +121,7 @@ def convert_dateformat(pattern):
                     else:
                         mark = False
             else:
-                if not inside and char != ' ':
+                if not inside and char != ' ' and char != '.':
                     buf += "'"
                     inside = True
 
@@ -256,10 +274,11 @@ def main():
     Example: python asterisk.py -p /var/log/asterisk/full*''', default='/var/log/asterisk/full*')
 
     # TODO: Find out what are the implications of non en_US locale
-    if locale.getdefaultlocale()[0] != 'en_US':
+    '''
+     if locale.getdefaultlocale()[0] != 'en_US':
         print("This machine is not in the locale of 'en_US'. This may break the dashbase parsing because Asterisk "
               "will output log according to the current locale")
-
+    '''
     args = parser.parse_args()
     conf_file = args.conf_file
     if not conf_file: 
