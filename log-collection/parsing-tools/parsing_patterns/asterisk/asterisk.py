@@ -1,15 +1,11 @@
+#!/usr/bin/python
 # -*- coding: utf-8 -*-
 import os
 import sys
 import locale
-import logging
 import yaml
-
-
-if sys.version > '3':
-    import configparser
-else:
-    import ConfigParser as configparser
+import argparse
+import ConfigParser as configparser
 
 ########################################################################################################################
 # See source code in https://github.com/apache/tomcat/blob/master/java/org/apache/catalina/util/Strftime.java#L52-L105
@@ -53,40 +49,43 @@ PATTERNS = {
 }
 
 
-def quote(str, inside_quotes):
-    return "'" + str + "'" if inside_quotes else str
+def quote(qstr, inside_quotes):
+
+    return "'" + qstr + "'" if inside_quotes else qstr
 
 
-def translate_command(buffer, pattern, index, old_inside):
+def translate_command(buf, pattern, index, old_inside):
+
     first_char = pattern[index]
     new_inside = old_inside
 
     if first_char == 'O' or first_char == 'E':
         if index + 1 < len(pattern):
-            new_inside, buffer = translate_command(buffer, pattern, index + 1, old_inside)
+            new_inside, buf = translate_command(buf, pattern, index + 1, old_inside)
         else:
-            buffer += quote("%" + first_char, old_inside)
+            buf += quote("%" + first_char, old_inside)
     else:
         command = PATTERNS.get("%" + first_char, None)
         if not command:
-            logging.info("Found unsupported specifications: %{}".format(first_char))
+            print("ERROR: Found unsupported specifications: %{}".format(first_char))
             exit(1)
         else:
             if old_inside:
-                buffer += "'"
-            buffer += command
+                buf += "'"
+            buf += command
             new_inside = False
-    return new_inside, buffer
+    return new_inside, buf
 
 
 # TODO:
 #   1. Fix pattern like "%.3q"
 #   2. Fix ', ",( ,), [, ] in pattern
 def convert_dateformat(pattern):
+
     inside = False
     mark = False
     modified_command = False
-    buffer = ""
+    buf = ""
 
     for index, char in enumerate(pattern):
         if char == '%' and not mark:
@@ -98,145 +97,189 @@ def convert_dateformat(pattern):
                     modified_command = False
                     mark = False
                 else:
-                    inside, buffer = translate_command(buffer, pattern, index, inside)
+                    inside, buf = translate_command(buf, pattern, index, inside)
                     if char == 'O' or char == 'E':
                         modified_command = True
                     else:
                         mark = False
             else:
                 if not inside and char != ' ':
-                    buffer += "'"
+                    buf += "'"
                     inside = True
 
-                buffer += char if char != "'" else "''"
+                buf += char if char != "'" else "''"
 
-    if len(buffer) > 0:
+    if len(buf) > 0:
         if inside:
-            buffer += "'"
-    return buffer
+            buf += "'"
+    return buf
 
 
 ########################################################################################################################
 
-class AsteriskGeneral():
-    use_callids = True
-    dateformat = ''
-    appendhostname = True
-    queue_log = True
 
-    def get_pattern(self):
-        if self.dateformat:
-            pattern = '\[%{GREEDYDATA:timestamp:datetime:' + convert_dateformat(self.dateformat) + '}\] '
-        else:
-            pattern = '\[%{SYSLOGTIMESTAMP:timestamp:datetime:MMM ppd HH:mm:ss}\\] '
+def get_pattern(config):
+    ''' create filebeat parsing grok pattern based on the logging configuration
+    '''
+    use_callids = config.get('general', 'use_callids', 'yes') == 'yes'
+    appendhostname = config.get('general', 'appendhostname', 'no') == 'yes'
+    dateformat = config.get('general', 'dateformat', '')
+    queue_log = config.get('general', 'queue_log', 'yes') == 'yes'
 
-        pattern += '%{WORD:level:meta}\[%{INT:lwp:int}\]'
-        if self.use_callids:
-            pattern += '(\[%{DATA:callid:text}\])?'
-        pattern += ' '
+    pattern = ''
+    if dateformat:
+        pattern = '\[%{GREEDYDATA:timestamp:datetime:' + convert_dateformat(dateformat) + '}\] '
+    else:
+        pattern = '\[%{SYSLOGTIMESTAMP:timestamp:datetime:MMM ppd HH:mm:ss}\\] '
 
-        pattern += '%{JAVAFILE:source:meta}: %{GREEDYDATA:message}'
+    pattern += '%{WORD:level:meta}\[%{INT:lwp:int}\]'
+    if use_callids:
+        pattern += '(\[%{DATA:callid:text}\])?'
+    pattern += ' '
 
-        return pattern
+    pattern += '%{JAVAFILE:source:meta}: %{GREEDYDATA:message}'
 
-
-def get_pattern(section):
-    general = AsteriskGeneral()
-
-    general.use_callids = section.get('use_callids', 'yes') == 'yes'
-
-    general.appendhostname = section.get('appendhostname', 'no') == 'yes'
-
-    general.dateformat = section.get('dateformat', '')
-
-    general.queue_log = section.get('queue_log', 'yes') == 'yes'
-
-    return general.get_pattern()
+    return pattern
 
 
 def read_config_file(filename):
-    logging.info("Reading file: {}".format(filename))
+    ''' Reads main logger configuration file, finds all #included configuration files and
+    put all content of these files into a string buffer
+    '''
+    print("Reading file: {}".format(filename))
 
-    buffer = ''  # type: str
-
+    buf = ''
     if not os.path.isfile(filename):
-        logging.info("File {} is not found".format(filename, flush=True))
-        return buffer
+        print("ERROR: File {} is not found".format(filename, flush=True))
+        return buf
 
     with open(filename, 'r') as f:
         while True:
             line = f.readline()
             if not line:
-                return buffer
+                return buf
             if not line.startswith("#include"):
-                buffer += line
+                buf += line
             else:
-                _, file = line.rsplit(maxsplit=2)
-                include_filename = os.path.join(os.path.dirname(filename), file)
-                buffer += read_config_file(include_filename)
+                _, sfile = line.rsplit(None, 2)
+                include_filename = os.path.join(os.path.dirname(filename), sfile)
+                buf += read_config_file(include_filename)
 
 
-dict_list = []
+def write_filebeat_config(pattern, filebeat_config, path_to_logs):
+    ''' Writes filebeat configuration for asterisk using pattern and path_to_logs
+       TODO: pass multi-line and output it as well
+    '''
+
+    with open(filebeat_config, "w") as fp:
+        try:
+            path = """
+- paths:
+    - """
+            document = """
+  type: log
+  multiline.pattern: '^\['
+  multiline.negate: true
+  multiline.match: after
+  close_inactive: 90s
+  harvester_limit: 1000
+  scan_frequency: 1s
+  symlinks: true
+  clean_removed: true
+  fields:
+    _message_parser:
+      type: multi
+      applyAll: 'true'
+      parsers:
+        sip:
+          type: sip
+        grok:
+          type: multi
+          parsers:
+            freepbx:
+              type: grok
+              pattern: "\\[%{TIMESTAMP_ISO8601:timestamp:datetime:yyyy-MM-dd HH:mm:ss}\\] %{WORD:level:meta}\\[%{INT:lwp:int}\\](\\[%{DATA:callid:text}\\])? %{JAVAFILE:source:meta}: %{GREEDYDATA:message}"
+            asterisk:
+              type: grok
+              pattern: """ 
+
+            path += '"{}"'.format(path_to_logs)
+            document += '"{}"'.format(pattern)
+            fp.write(path+document) 
+            print("Created asterisk filebeat configuration file {}".format(filebeat_config))
+        except Exception, e:
+            print("ERROR: Failed to output asterisk filebeat configuration file", e)
 
 
-def writeConfig(pattern):
-    conf_file_path = input("Enter templates configs path (press enter to create config in preset working directory): ")
-    if(len(conf_file_path) < 1):
-        conf_file_path = "asterisk.yaml"
-    package_dir = os.path.dirname(os.path.abspath(__file__))
-    patternConfig = os.path.join(package_dir, conf_file_path)
-    #TODO: add muti-line support
-    dict_file = {"pattern": pattern, "type": 'grok'}
+def get_config(conf_file):
+    ''' Reads logging configuration files
+        Returns ConfigParser object config '''
+ 
+    buf = read_config_file(conf_file)
+    try:
+        # write buf into a file for ConfigParser to open
+        aggregated_config = os.path.join(os.getcwd(), 'aggregated.conf')
+        fout = open(aggregated_config, 'w')
+        fout.write(buf) 
+        fout.close()
+        config = configparser.ConfigParser()
+        config.read(aggregated_config)
+        if 'general' not in config.sections():
+            print("ERROR: Section 'general' is not found in the config files."
+                  "Not able to proceed with pattern configuration, exiting")
+            exit(1)
+        return config
 
-    if(len(conf_file_path) < 1):
-        with open(patternConfig, "a+") as fp:
-            try:
-                fp.truncate(0)
-                fp.write("\n")
-                yaml.dump(dict_file, fp)
-            except:
-                logging.error("Failed to dump YAML config.")
-            finally:
-                fp.close()
-    else:
-        with open(conf_file_path, "w") as fp:
-            config = yaml.load(fp)
-            #TODO: Review this.
-            logging.debug(config[0]['fields']['_message_parser']['parsers']['grok']['parsers']['asterisk']['pattern'])
-            try:
-                config[0]['fields']['_message_parser']['parsers']['grok']['parsers']['asterisk']['pattern'] = pattern
-                yaml.dump(config, fp)
-            except:
-                logging.error("Failed to dump YAML config.")
-            finally:
-                fp.close()
+    except configparser.ParsingError as e:
+        print(error(e))
+    finally:
+        if os.path.exists(aggregated_config): 
+            os.unlink(aggregated_config)
 
 
+def main():
+
+    parser = argparse.ArgumentParser(
+        description='script to generate filebeat configuration file based on logging configuration file for asterisk server',
+        usage='use "python %(prog)s --help" for more information',
+        formatter_class=argparse.RawTextHelpFormatter)
+
+    parser.add_argument('-c', '--conf_file', help='''file to read logging configuration from.
+    Example: python asterisk.py -c /tmp/logging.conf
+    If logging.conf includes other configuration files with #include,
+    they also need to be accessible in the same folder''')
+
+    parser.add_argument('-o', '--output_filebeat_file', help='''yaml file to write created filebeat configuration.
+    Example: python asterisk.py -o /tmp/asterisk.yaml''')
+
+    parser.add_argument('-p', '--path_to_log', help='''path to the asterisk logs to collect from with filebeat.
+    Example: python asterisk.py -p /var/log/asterisk/full*''', default='/var/log/asterisk/full*')
+
+    # TODO: Find out what are the implications of non en_US locale
+    if locale.getdefaultlocale()[0] != 'en_US':
+        print("This machine is not in the locale of 'en_US'. This may break the dashbase parsing because Asterisk "
+              "will output log according to the current locale")
+
+    args = parser.parse_args()
+    conf_file = args.conf_file
+    if not conf_file: 
+        conf_file = raw_input("Enter asterisk logger.conf path: ")
+
+    filebeat_file = args.output_filebeat_file
+    if not filebeat_file:
+        # TODO: output filebeat config into ansible/roles/filebeat/templates/config but check
+        # if file already present, and ask to confirm that it can be overwritten
+        filebeat_file = os.path.join(os.getcwd(), 'asterisk.yaml') 
+        
+    config = get_config(conf_file)
+    filebeat_pattern = get_pattern(config)
+    # TODO: add muti-line support
+    # multi_line = get_multiline(pattern)
+    print("Your pattern is: '{}'".format(filebeat_pattern))
+
+    write_filebeat_config(filebeat_pattern, filebeat_file, args.path_to_log)
 
 
 if __name__ == '__main__':
+    main()
 
-    if locale.getdefaultlocale()[0] != 'en_US':
-        logging.info("This machine is not in the locale of 'en_US'. This may break the dashbase parsing because Asterisk "
-              "will output log according to the current locale")
-
-
-    conf_file_path = input("Enter asterisk logger.conf path : ")
-    buffer = read_config_file(conf_file_path)
-
-    try:
-        config = configparser.ConfigParser(interpolation=configparser.Interpolation())
-
-        config.read_string(buffer)
-
-        if 'general' not in config:
-            logging.info("Section 'general' is not found in the config files. "
-                  "These config files are considered as broken ones.")
-            exit(1)
-
-        pattern = config['general'].get('dateformat')
-
-        logging.info("Your pattern is: '{}'".format(get_pattern(config['general'])))
-        writeConfig(get_pattern(config['general']))
-    except configparser.ParsingError as e:
-        logging.error(e)
