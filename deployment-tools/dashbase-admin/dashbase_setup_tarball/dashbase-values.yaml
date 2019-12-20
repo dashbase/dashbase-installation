@@ -21,16 +21,16 @@ default:
     priorityClassName: dashbase-high-priority
     storage:
       class: "dashbase-data"
-      size: "3000Gi"
+      size: "2000Gi"
 
     containerConfig:
       resources:
         requests:
           cpu: 4
-          memory: 28G
+          memory: 26G
         limits:
           cpu: 4
-          memory: 26G
+          memory: 28G
     environment:
       JAVA_OPTS: "-Xmx20g -Xms16g"
       BLOOM_FILTER_SIZE: "400"
