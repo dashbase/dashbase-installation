@@ -21,7 +21,7 @@ default:
     priorityClassName: dashbase-high-priority
     storage:
       class: "dashbase-data"
-      size: "2000Gi"
+      size: "3000Gi"
 
     containerConfig:
       resources:
