@@ -20,12 +20,6 @@
     src: fields.yml
     dest: /etc/filebeat/fields.yml
 
-##copy extra fields.yml
-- name: Copy filebeat app fields files
-  template:
-    src: "configs/{{ item }}.yml"
-    dest: "/etc/filebeat"
-
 ## Copy the filebeat config file
 - name: Copy filebeat.yml file
   template:
