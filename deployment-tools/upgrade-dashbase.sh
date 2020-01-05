@@ -149,6 +149,9 @@ elif [[ "$CHARTVERSION" == "undefined" ]] && [[ "$VERSION" != "undefined"  ]]; t
   echo "Dashbase version is provided and chart version is not provided"
   echo "Both dashbase version and chart version will be in version $VERSION"
   chartver="--version $VERSION"
+elif [[ "$CHARTVERSION" == "devel" ]]; then
+  echo "Entered chart version is latest development version"
+  chartver="--devel"
 elif [[ "$CHARTVERSION" != "undefined" ]]; then
   echo "Entered chart version is $CHARTVERSION"
   chartver="--version $CHARTVERSION"
