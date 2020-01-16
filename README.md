@@ -1,6 +1,6 @@
 # Dashbase Installation
 
-###AWS only: Create EKS cluster and install Dashbase:
+### AWS only: Create EKS cluster and install Dashbase:
 
 ```
    1. create a t2.micro EC2 instance with CentOS 7.4  (e.g. ami-0df65459f2f119903 on us-west-2) that will be used as cluster admin host.
@@ -28,7 +28,7 @@ Create Record Set mapping from ingress controller IP to subdomain using AWS Rout
 After that, endpoints to access Dashbase Web UI, Dashbase table for indexing and Dashbase grafana for monitoring can be accessed.
 
 
-###AWS only: Uninstall Dashbase and delete EKS cluster and all cluster-related resources:
+### AWS only: Uninstall Dashbase and delete EKS cluster and all cluster-related resources:
 
 Run remove_aws_eks.sh script with --region parameter.
 It will find EKS dashbase cluster in that region and delete it.
@@ -38,7 +38,7 @@ cd dashbase-installation/
 deployment-tools/remove_aws_eks.sh --region=REGION
 ```
 
-###AWS, GCE, AZURE: Install Dashbase on already created K8s cluster:
+### AWS, GCE, AZURE: Install Dashbase on already created K8s cluster:
 
 Pre-reqs:
 ```
@@ -86,13 +86,13 @@ For smaller setup such as 3 X t3.medium ( 3 X  2cpu + 4GB ram), use the dashbase
 ./deployment-tools/dashbase-installer-smallsetup.sh --platform=aws
 ```
 
-###Update dashbase license
+### Update dashbase license
 
 ```
 ./deployment-tools/upgrade-dashbase.sh --username=username --license=license
 ```
 
-###Upgrade dashbase version
+### Upgrade dashbase version
 
 Run upgrade-dashbase.sh script and specify dashbase version
 ```
