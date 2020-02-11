@@ -6,6 +6,8 @@
   roles:
     - telegraf
     - filebeat
+    - role: heplify
+      when: '"heplify" in vars.configs.split(",")'
 
   vars_prompt:
     - name: "dashbase_url"

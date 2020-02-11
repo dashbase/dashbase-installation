@@ -1,0 +1,30 @@
+- paths:
+    - /var/log/heplify.log
+  type: log
+  multiline.pattern: '^20'
+  multiline.negate: true
+  multiline.match: after
+  close_inactive: 90s
+  harvester_limit: 1000
+  scan_frequency: 1s
+  symlinks: true
+  clean_removed: true
+  fields:
+    component: heplify
+    _message_parser:
+      type: multi
+      parsers_list:
+        - name: heplify
+          config:
+            type: heplify
+            timestamp:
+              format: iso
+              scan: 'true'
+            payloadParser:
+              type: escaped_sip
+              sortedFields: call-id
+        - name: basic
+          config:
+            type: timestamp
+            scan: 'true'
+            format: iso
