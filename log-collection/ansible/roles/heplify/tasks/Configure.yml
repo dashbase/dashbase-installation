@@ -12,7 +12,7 @@
 
 - name: Copy heplify package
   copy:
-    src: heplify
+    src: heplify-{{ heplify_version}}-Linux
     dest: /opt/scripts/heplify
     owner: root
     group: root

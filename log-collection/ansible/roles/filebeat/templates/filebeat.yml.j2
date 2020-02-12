@@ -14,10 +14,8 @@ filebeat.config.inputs:
   reload.period: 10s
 
 fields:
-{% for k, v in vars.items() %}
-{% if k.startswith('dashbase-fields-')%}
-  {{ k[16:] }}: {{ v }}
-{% endif %}
+{% for k, v in vars.items() if k is string and k|length > 11 and k.startswith('x-dashbase-') %}
+  {{ k }}: {{ v }}
 {% endfor %}
   
 
