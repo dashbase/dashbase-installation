@@ -33,7 +33,6 @@
         grok:
           type: grok
           pattern: |-
-            \|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|
             ====================
             tag: %{WORD:tag:meta}
             pid: %{NUMBER:pid:int}
@@ -45,12 +44,13 @@
             srcport: %{INT:src-port:text}
             dstip: %{IPORHOST:dst-ip:text}
             dstport: %{INT:dst-port:text}
-            \~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~
+            \~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~
             %{GREEDYDATA:message}
+            \|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|
         sip:
           type: sip
           sortedFields: call-id,user-agent
-  multiline.pattern: '^\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|'
+  multiline.pattern: '^===================='
   multiline.negate: true
   multiline.match: after
   close_inactive: 90s
