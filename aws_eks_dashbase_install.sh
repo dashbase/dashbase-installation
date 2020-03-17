@@ -124,7 +124,7 @@ check_ostype() {
     log_info "Dedected current workstation is a linux"
     WKOSTYPE="linux"
   else
-    log_fatal "This script is only tested on linux and mac; and fail to detect the current worksattion os type"
+    log_fatal "This script is only tested on linux; and fail to detect the current worksattion os type"
   fi
 }
 
@@ -208,6 +208,14 @@ setup_centos() {
     mv /tmp/eksctl /usr/local/bin
     chmod +x /usr/local/bin/eksctl
   fi
+  # install htpasswd
+  if [ "$(command -v htpasswd > /dev/null ; echo $?)" -eq "0" ]; then
+    log_info "htpasswd is installed in this host"
+  else
+    log_info "htpasswd is not installed, installing it now"
+    yum install -y httpd-tools
+  fi
+
   # install helm 3
   if [ "$(command -v helm > /dev/null ; echo $?)" -eq "0" ]; then
     log_info "helm is installed, checking helm version"
