@@ -237,24 +237,17 @@ check_version() {
 check_ostype() {
   if [[ $OSTYPE == *"darwin"* ]]; then
     log_info "Dedected current workstation OS is mac"
-    WKOSTYPE="mac"
   elif [[ $OSTYPE == *"linux"* ]]; then
     #log_info "Dedected current workstation is a linux"
     LINUXTYPE=$(cat /etc/os-release |grep NAME |grep -iv "_" |sed 's/\"//g' |cut -d "=" -f2 |awk '{print $1}')
     if [ "$LINUXTYPE" ==  "CentOS" ]; then
       log_info "Dedected current workstation OS is centos"
-      WKOSTYPE="centos"
     elif [ "$LINUXTYPE" ==  "Ubuntu" ]; then
       log_info "Dedected current workstation OS is ubuntu"
-      WKOSTYPE="ubuntu"
     fi
+  else
+    log_warning "Dedected current workstation OS is neither mac, centos, ubuntu"
   fi
-}
-
-run_by_root() {
-if [[ $EUID -ne 0 ]]; then
-   log_fatal "This script must be run as root"
-fi
 }
 
 check_basic_auth() {
@@ -280,20 +273,6 @@ check_basic_auth() {
     log_fatal "Basic auth is selected but not selecting --ingress for installer script"
   elif [ "$BASIC_AUTH" == "true" ] && [ -z "$SUBDOMAIN" ]; then
     log_fatal "Basic auth is selected but not providing --subdomain=sub.example.com string for installer script"
-  fi
-  # basic auth creation uses htpasswd
-  # check htpasswd exists or not, if not try to install it based on ostype
-  if [ -x "$(command -v htpasswd)" ]; then
-    log_info "htpasswd command is found"
-  else
-    log_warning "htpasswd command is not found, and try to install it"
-    if [ "$WKOSTYPE" == "mac" ]; then
-      log_fatal "Please install htpasswd in your mac e.g. brew install httpd"
-    elif [ "$WKOSTYPE" == "centos" ]; then
-      if [[ $EUID -eq 0 ]]; then yum install -y httpd-tools ; else log_fatal "Install htpasswd on $WKOSTYPE requires script run by root" ; fi
-    elif [ "$WKOSTYPE" == "ubuntu" ]; then
-      if [[ $EUID -eq 0 ]]; then apt-get update && apt-get -y install apache2-utils ; else log_fatal "Install htpasswd on $WKOSTYPE requires script run by root" ; fi
-    fi
   fi
 }
 
@@ -500,15 +479,11 @@ create_sslcert() {
   fi
 }
 
-create_basic_auth_secret(){
-  if [ -x "$(command -v htpasswd)" ]; then
-    log_info "htpasswd command is found"
-    htpassd -n -c auth "$USERNAME" "$PASSWORD"
-    kubectl create secret generic dashbase-auth --from-file=auth -n dashbase
-    kubectl get secret dashbase-auth -n dashbase
-  else
-    log_fatal "htpasswd is not found"
-  fi
+create_basic_auth_secret() {
+  log_info "create basic auth secret in admin pod"
+  kubectl exec -it admindash-0 -n dashbase -- htpassd -b -c /data/auth "$USERNAME" "$PASSWORD"
+  kubectl exec -it admindash-0 -n dashbase -- kubectl create secret generic dashbase-auth --from-file=/data/auth -n dashbase
+  kubectl get secret dashbase-auth -n dashbase
 }
 
 install_dashbase() {
@@ -542,6 +517,9 @@ expose_endpoints() {
     if [ "$BASIC_AUTH" == "true" ]; then
       log_info "Creating ingress for web with basic auth"
       create_basic_auth_secret
+      # update ingress-web.yaml with subdomain name
+      kubectl exec -it admindash-0 -n dashbase -- bash -c "sed -i 's|test.dashbase.io|$SUBDOMAIN|' /data/ingress-web.yaml"
+      # apply the ingress-web.yaml into K8s cluster
       kubectl exec -it admindash-0 -n dashbase -- bash -c "kubectl apply -f /data/ingress-web.yaml -n dashbase"
     fi
   else
@@ -577,13 +555,6 @@ else
   create_storageclass
 fi
 
-# setup helm tiller
-#if [ "$(kubectl get pod -n kube-system | grep -c tiller)" -gt "0" ]; then
-#  log_fatal "previous tiller pod exists in this K8s cluster"
-#else
-#  echo "creating tiller in K8s"
-#  setup_helm_tiller
-#fi
 check_helm
 create_sslcert
 

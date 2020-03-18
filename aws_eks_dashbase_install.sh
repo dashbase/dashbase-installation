@@ -118,7 +118,7 @@ check_commands() {
 
 check_ostype() {
   if [[ $OSTYPE == *"darwin"* ]]; then
-    log_fatal "Dedected current workstation is a mac"
+    log_fatal "Dedected current workstation is a mac, this script only tested on linux"
     WKOSTYPE="mac"
   elif [[ $OSTYPE == *"linux"* ]]; then
     log_info "Dedected current workstation is a linux"
@@ -208,14 +208,6 @@ setup_centos() {
     mv /tmp/eksctl /usr/local/bin
     chmod +x /usr/local/bin/eksctl
   fi
-  # install htpasswd
-  if [ "$(command -v htpasswd > /dev/null ; echo $?)" -eq "0" ]; then
-    log_info "htpasswd is installed in this host"
-  else
-    log_info "htpasswd is not installed, installing it now"
-    yum install -y httpd-tools
-  fi
-
   # install helm 3
   if [ "$(command -v helm > /dev/null ; echo $?)" -eq "0" ]; then
     log_info "helm is installed, checking helm version"
