@@ -22,7 +22,7 @@ data:
 
         static_configs:
           - targets:
-            - http://prometheus:9090
+            - prometheus:9090
 ---
 apiVersion: apps/v1
 kind: Deployment
