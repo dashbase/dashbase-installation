@@ -5,7 +5,7 @@ INGRESS_FLAG="false"
 VALUEFILE="dashbase-values.yaml"
 USERNAME="undefined"
 LICENSE="undefined"
-DASHVERSION="1.3.0-rc3"
+DASHVERSION="1.3.0"
 AUTHUSERNAME="undefined"
 AUTHPASSWORD="undefined"
 
@@ -481,7 +481,7 @@ create_sslcert() {
 
 create_basic_auth_secret() {
   log_info "create basic auth secret in admin pod"
-  kubectl exec -it admindash-0 -n dashbase -- htpassd -b -c /data/auth "$USERNAME" "$PASSWORD"
+  kubectl exec -it admindash-0 -n dashbase -- htpasswd -b -c /data/auth "$AUTHUSERNAME" "$AUTHPASSWORD"
   kubectl exec -it admindash-0 -n dashbase -- kubectl create secret generic dashbase-auth --from-file=/data/auth -n dashbase
   kubectl get secret dashbase-auth -n dashbase
 }
