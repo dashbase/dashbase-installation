@@ -5,7 +5,7 @@ INGRESS_FLAG="false"
 VALUEFILE="dashbase-values.yaml"
 USERNAME="undefined"
 LICENSE="undefined"
-DASHVERSION="1.3.0"
+DASHVERSION="1.3.2"
 AUTHUSERNAME="undefined"
 AUTHPASSWORD="undefined"
 

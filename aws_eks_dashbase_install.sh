@@ -336,7 +336,7 @@ setup_dashbase() {
          dashbase-installation/dashbase-installer.sh --platform=aws --ingress --subdomain=$SUBDOMAIN
       elif [ "$SETUP_TYPE" == "ingress" ] && [ "$BASIC_AUTH" == "true" ]; then
          log_info "Dashbase large setup with ingress controller endpoint and basic auth is selected"
-         dashbase-installation/dashbase-installer.sh --platform=aws --ingress --subdomain=$SUBDOMAIN --basic_auth --authusername=$AUTHUSERNAME --authpassword=$AUTHPASSWORD        
+         dashbase-installation/dashbase-installer.sh --platform=aws --ingress --subdomain=$SUBDOMAIN --basic_auth --authusername=$AUTHUSERNAME --authpassword=$AUTHPASSWORD
       else
          log_info "Dashbase small setup with load balancer endpoint is selected"
          dashbase-installation/dashbase-installer.sh --platform=aws
