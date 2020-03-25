@@ -428,13 +428,6 @@ download_dashbase() {
     kubectl exec -it admindash-0 -n dashbase -- bash -c "wget -O /data/dashbase-values.yaml https://github.com/dashbase/dashbase-installation/raw/master/deployment-tools/dashbase-admin/dashbase_setup_tarball/largesetup/dashbase-values.yaml"
   fi
 
-#  if [ "$BASIC_AUTH" == true ]; then
-#    log_info "Download dashbase-values.yaml file for basic auth"
-#    kubectl exec -it admindash-0 -n dashbase -- bash -c "wget -O /data/dashbase-values.yaml https://github.com/dashbase/dashbase-installation/raw/master/deployment-tools/dashbase-admin/dashbase_setup_tarball/largesetup/dashbase-values-basicauth.yaml"
-#  else
-#    log_info "Download dashbase-values.yaml file without basic auth"
-#    kubectl exec -it admindash-0 -n dashbase -- bash -c "wget -O /data/dashbase-values.yaml https://github.com/dashbase/dashbase-installation/raw/master/deployment-tools/dashbase-admin/dashbase_setup_tarball/largesetup/dashbase-values.yaml"
-#  fi
   kubectl exec -it admindash-0 -n dashbase -- bash -c "chmod a+x /data/*.sh"
   # create sym link for dashbase custom values yaml from /dashbase
   kubectl exec -it admindash-0 -n dashbase -- bash -c "ln -s /data/dashbase-values.yaml  /dashbase/dashbase-values.yaml"
@@ -498,6 +491,11 @@ update_dashbase_valuefile() {
     kubectl exec -it admindash-0 -n dashbase -- sed -i 's/ENABLE_CALL\:\ \"false\"/ENABLE_CALL\:\ \"true\"/' /data/dashbase-values.yaml
     kubectl exec -it admindash-0 -n dashbase -- sed -i 's/ENABLE_CDR\:\ \"false\"/ENABLE_CDR\:\ \"true\"/' /data/dashbase-values.yaml
     kubectl exec -it admindash-0 -n dashbase -- sed -i 's/ENABLE_INSIGHTS\:\ \"false\"/ENABLE_INSIGHTS\:\ \"true\"/' /data/dashbase-values.yaml
+  fi
+  # update bucket name
+  if [ "$V2_FLAG" == "true" ]; then
+    log_info "update object storage bucket name"
+    kubectl exec -it admindash-0 -n dashbase -- bash -c "sed -i 's|MYBUCKET|$BUCKETNAME|' /data/dashbase-values.yaml"
   fi
   # update keystore passwords for both dashbase and presto
   log_info "update dashbase and presto keystore password in dashbase-values.yaml"
