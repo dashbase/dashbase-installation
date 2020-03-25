@@ -87,6 +87,8 @@ services:
     enabled: true
   api:
     enabled: true
+    environment:
+      ENABLE_K8S_DISCOVERY: "true"
   web:
     expose: true
     enabled: true

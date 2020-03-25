@@ -411,7 +411,7 @@ create_storageclass() {
   fi
   kubectl exec -it admindash-0 -n dashbase -- bash -c "kubectl get storageclass |grep dashbase"
   STORECLASSCHK=$(kubectl get storageclass | grep -c dashbase)
-  if [ "$STORECLASSCHK" -eq "2" ]; then echo "Dashbase storageclasses are available"; else log_fatal "Dashbase storageclasses not found"; fi
+  if [ "$STORECLASSCHK" -eq "3" ]; then echo "Dashbase storageclasses are available"; else log_fatal "Dashbase storageclasses not found"; fi
 }
 
 download_dashbase() {
