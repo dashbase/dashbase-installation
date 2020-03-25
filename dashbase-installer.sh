@@ -1,13 +1,19 @@
 #!/bin/bash
 
+INSTALLER_VERSION="1.4.0"
 PLATFORM="undefined"
 INGRESS_FLAG="false"
+V2_FLAG="false"
+UCAAS_FLAG="false"
 VALUEFILE="dashbase-values.yaml"
 USERNAME="undefined"
 LICENSE="undefined"
 DASHVERSION="1.3.2"
 AUTHUSERNAME="undefined"
 AUTHPASSWORD="undefined"
+BUCKETNAME="undefined"
+
+echo "Installer script version is $INSTALLER_VERSION"
 
 # log functions and input flag setup
 function log_info() {
@@ -62,6 +68,13 @@ while [[ $# -gt 0 ]]; do
     fail_if_empty "$PARAM" "$VALUE"
     LICENSE=$VALUE
     ;;
+  --bucketname)
+    fail_if_empty "$PARAM" "$VALUE"
+    BUCKETNAME=$VALUE
+    ;;
+  --v2)
+    V2_FLAG="true"
+    ;;
   --authusername)
     fail_if_empty "$PARAM" "$VALUE"
     AUTHUSERNAME=$VALUE
@@ -78,6 +91,9 @@ while [[ $# -gt 0 ]]; do
     ;;
   --exposemon)
     EXPOSEMON="--exposemon"
+    ;;
+  --ucaas)
+    UCAAS_FLAG="true"
     ;;
   *)
     log_fatal "Unknown parameter ($PARAM) with ${VALUE:-no value}"
@@ -276,6 +292,17 @@ check_basic_auth() {
   fi
 }
 
+check_v2() {
+  # check v2 input
+  if [ "$V2_FLAG" ==  "true" ] && [ "$BUCKETNAME" == "undefined" ]; then
+    log_fatal "V2 is selected but not provide any cloud object storage bucket name"
+  elif [ "$V2_FLAG" ==  "true" ] &&  [ "$BUCKETNAME" != "undefined" ]; then
+    log_info "V2 is selected and bucket name is $BUCKETNAME"
+  elif [ "$V2_FLAG" ==  "false" ]; then
+    log_info "V2 is not selected in this installation"
+  fi
+}
+
 preflight_check() {
   # preflight checks
   log_info "OS type running this script is $OSTYPE"
@@ -370,13 +397,17 @@ create_storageclass() {
     log_info "create storageclass for AWS disk"
     kubectl exec -it admindash-0 -n dashbase -- bash -c "kubectl apply -f /data/dashbase-data-aws.yaml -n dashbase"
     kubectl exec -it admindash-0 -n dashbase -- bash -c "kubectl apply -f /data/dashbase-meta-aws.yaml -n dashbase"
+    kubectl exec -it admindash-0 -n dashbase -- bash -c "kubectl apply -f /data/dashbase-indexer-aws.yaml -n dashbase"
+
   elif [ "$PLATFORM" == "gce" ]; then
     log_info "create storageclass for GCE disk"
     kubectl exec -it admindash-0 -n dashbase -- bash -c "kubectl apply -f /data/dashbase-data-gce.yaml -n dashbase"
     kubectl exec -it admindash-0 -n dashbase -- bash -c "kubectl apply -f /data/dashbase-meta-gce.yaml -n dashbase"
+    kubectl exec -it admindash-0 -n dashbase -- bash -c "kubectl apply -f /data/dashbase-indexer-gce.yaml -n dashbase"
   elif [ "$PLATFORM" == "azure" ]; then
     log_info "create storageclass for Azure disk"
     kubectl exec -it admindash-0 -n dashbase -- bash -c "kubectl apply -f /data/dashbase-data-azure.yaml -n dashbase"
+    kubectl exec -it admindash-0 -n dashbase -- bash -c "kubectl apply -f /data/dashbase-indexer-azure.yaml -n dashbase"
   fi
   kubectl exec -it admindash-0 -n dashbase -- bash -c "kubectl get storageclass |grep dashbase"
   STORECLASSCHK=$(kubectl get storageclass | grep -c dashbase)
@@ -389,13 +420,21 @@ download_dashbase() {
   kubectl exec -it admindash-0 -n dashbase -- bash -c "wget -O /data/dashbase_setup_nolicy.tar  https://github.com/dashbase/dashbase-installation/raw/master/deployment-tools/dashbase-admin/dashbase_setup_tarball/dashbase_setup_nolicy.tar"
   kubectl exec -it admindash-0 -n dashbase -- bash -c "tar -xvf /data/dashbase_setup_nolicy.tar -C /data/"
   # get the custom values yaml file
-  if [ "$BASIC_AUTH" == true ]; then
-    log_info "Download dashbase-values.yaml file for basic auth"
-    kubectl exec -it admindash-0 -n dashbase -- bash -c "wget -O /data/dashbase-values.yaml https://github.com/dashbase/dashbase-installation/raw/master/deployment-tools/dashbase-admin/dashbase_setup_tarball/largesetup/dashbase-values-basicauth.yaml"
+  if [ "$V2_FLAG" == "true" ]; then
+    log_info "Download dashbase-values-v2.yaml file for v2 setup"
+    kubectl exec -it admindash-0 -n dashbase -- bash -c "wget -O /data/dashbase-values.yaml https://github.com/dashbase/dashbase-installation/raw/master/deployment-tools/dashbase-admin/dashbase_setup_tarball/largesetup/dashbase-values-v2.yaml"
   else
-    log_info "Download dashbase-values.yaml file without basic auth"
+    log_info "Download dashbase-values.yaml file for v1 setup"
     kubectl exec -it admindash-0 -n dashbase -- bash -c "wget -O /data/dashbase-values.yaml https://github.com/dashbase/dashbase-installation/raw/master/deployment-tools/dashbase-admin/dashbase_setup_tarball/largesetup/dashbase-values.yaml"
   fi
+
+#  if [ "$BASIC_AUTH" == true ]; then
+#    log_info "Download dashbase-values.yaml file for basic auth"
+#    kubectl exec -it admindash-0 -n dashbase -- bash -c "wget -O /data/dashbase-values.yaml https://github.com/dashbase/dashbase-installation/raw/master/deployment-tools/dashbase-admin/dashbase_setup_tarball/largesetup/dashbase-values-basicauth.yaml"
+#  else
+#    log_info "Download dashbase-values.yaml file without basic auth"
+#    kubectl exec -it admindash-0 -n dashbase -- bash -c "wget -O /data/dashbase-values.yaml https://github.com/dashbase/dashbase-installation/raw/master/deployment-tools/dashbase-admin/dashbase_setup_tarball/largesetup/dashbase-values.yaml"
+#  fi
   kubectl exec -it admindash-0 -n dashbase -- bash -c "chmod a+x /data/*.sh"
   # create sym link for dashbase custom values yaml from /dashbase
   kubectl exec -it admindash-0 -n dashbase -- bash -c "ln -s /data/dashbase-values.yaml  /dashbase/dashbase-values.yaml"
@@ -445,6 +484,20 @@ update_dashbase_valuefile() {
   else
     log_info "use $VERSION in dashbase_version on dashbase-values.yaml"
     kubectl exec -it admindash-0 -n dashbase -- sed -i "s|dashbase_version: nightly|dashbase_version: $VERSION|" /data/dashbase-values.yaml
+  fi
+  # update basic auth
+  if [ "$BASIC_AUTH" == "true" ]; then
+    log_info "update dashbase-values.yaml file for basic auth"
+    kubectl exec -it admindash-0 -n dashbase -- sed -i '/web\:/!b;n;c\ \ \ \ expose\: false' /data/dashbase-values.yaml
+  fi
+  # update ucaas feature
+  if [ "$UCAAS_FLAG" == "true" ]; then
+    log_info "update dashbase-values.yaml file to enable UCAAS features"
+    kubectl exec -it admindash-0 -n dashbase -- sed -i '/exporter\:/!b;n;c\ \ \ \ enabled\: true' /data/dashbase-values.yaml
+    kubectl exec -it admindash-0 -n dashbase -- sed -i 's/ENABLE_UCAAS\:\ \"false\"/ENABLE_UCAAS\:\ \"true\"/' /data/dashbase-values.yaml
+    kubectl exec -it admindash-0 -n dashbase -- sed -i 's/ENABLE_CALL\:\ \"false\"/ENABLE_CALL\:\ \"true\"/' /data/dashbase-values.yaml
+    kubectl exec -it admindash-0 -n dashbase -- sed -i 's/ENABLE_CDR\:\ \"false\"/ENABLE_CDR\:\ \"true\"/' /data/dashbase-values.yaml
+    kubectl exec -it admindash-0 -n dashbase -- sed -i 's/ENABLE_INSIGHTS\:\ \"false\"/ENABLE_INSIGHTS\:\ \"true\"/' /data/dashbase-values.yaml
   fi
   # update keystore passwords for both dashbase and presto
   log_info "update dashbase and presto keystore password in dashbase-values.yaml"
@@ -537,6 +590,7 @@ check_ingress_subdomain
 check_basic_auth
 check_version
 check_license
+check_v2
 preflight_check
 
 # install admin pod

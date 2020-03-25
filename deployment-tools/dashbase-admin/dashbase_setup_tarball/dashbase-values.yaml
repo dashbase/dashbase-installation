@@ -1,0 +1,152 @@
+dashbase_version: 1.3.0
+
+https: true
+
+default_storageclass_provider:
+  platform: "aws"
+
+v2:
+  bucket: mybucket-s3
+
+default:
+  storage:
+    class: "dashbase-meta"
+    size: 10Gi
+
+  table:
+    priorityClassName: dashbase-high-priority
+    storage:
+      class: "dashbase-data"
+      size: "1000Gi"
+
+    containerConfig:
+      resources:
+        requests:
+          cpu: 1
+          memory: 2G
+        limits:
+          cpu: 1
+          memory: 2G
+    environment:
+      JAVA_OPTS: "-Xmx20g -Xms16g"
+      BLOOM_FILTER_SIZE: "400"
+      MAX_BUFFER_DELAY_IN_SEC: "1000"
+      RETENTION_NUM_DAYS: "14"
+      RETENTION_SIZE_GB: "850"
+      IN_MEMORY_BUFFER: "true"
+      READER_CACHE_MEM_PERCENT: "60"
+      NUM_INDEXING_THREADS: "2"
+      MIN_BUFFER_SIZE_MB: "200"
+
+ingress:
+  enabled: true
+  certmanager: false
+  host: test.dashbase.io
+
+
+tablesv2:
+  logsv2:
+    table_manager:
+      replicas: 1
+      containerConfig:
+        resources:
+          requests:
+            cpu: 1
+            memory: 4G
+          limits:
+            cpu: 1
+            memory: 4G
+    indexer:
+      containerConfig:
+        resources:
+          requests:
+            cpu: 5
+            memory: 15G
+          limits:
+            cpu: 5
+            memory: 15G
+
+presto:
+  enabled: false
+  presto:
+    prestoKeystorePassword: Fennv1cYXGqKagYtNPGA8JdAuT2Kge8p
+    dashbaseKeystorePassword: BklYgPgaktVNZFdnme5x4JB9XC0mWQ5v
+    coordinatorResources:
+      requests:
+        cpu: 1
+        memory: 1G
+      limits:
+        cpu: 1
+        momory: 1G
+
+services:
+  etcd:
+    enabled: true
+  api:
+    enabled: true
+
+  web:
+    enabled: true
+    secrets:
+      presto-cert:
+        dir: /run/prestojks/
+        file: presto-cert.pem
+      presto-key:
+        dir: /run/prestojks/
+        file: presto-key.pem
+      presto-keystore:
+        dir: /run/prestojks/
+        file: presto-keystore
+      presto-keystore-password:
+        dir: /run/prestojks/
+        file: presto-keystore-password
+    environment:
+      ENABLE_SEARCH_SCHEDULER: "true"
+      ENABLE_CHRONOLOGICAL_SORT: "true"
+      ENABLE_SCHEDULED_METRICS: "true"
+      DISPLAY_COLOREDFIELDS: "traceId,spanId,level"
+      ENABLE_UCAAS: "true"
+      UCAAS_PRESTO_URL: "jdbc:presto://presto-coordinator-0.presto-coordinator.dashbase.svc.cluster.local:8443/thrift/dashbase?user=test&password=&SSL=true&SSLKeyStorePath=/run/prestojks/presto-keystore&SSLKeyStorePassword=Fennv1cYXGqKagYtNPGA8JdAuT2Kge8p"
+      ENABLE_CDR: "true"
+      CDR_TABLES: "logs"
+
+  prometheus:
+    enabled: true
+    image: "dashbase/prometheus:nightly"
+  grafana:
+    enabled: true
+    image: dashbase/grafana:23dfde
+  alertmanager:
+    enabled: false
+  pushgateway:
+    enabled: true
+  exporter:
+    enabled: false
+    config:
+      metrics:
+        error_count:
+          description: "count of logs with level:error"
+          table: "logs"
+          filter: "level:error"
+          aggregation: "count(*)"
+          accumulate: true
+
+  searcher:
+    enabled: true
+    replicas: 4
+    containerConfig:
+      resources:
+        requests:
+          cpu: 1
+          memory: 3G
+        limits:
+          cpu: 1
+          memory: 3G
+
+username: "dashuser"
+license: "90/iJuqsRioWDuYvmLVIhALBuN1bCthBYowJn4UZblsyVwi7X21QBzzJ7KJkGGW6LhZWSO2tJmN+Ov8NH3+CW09OHYq1I7WFcKwioU9uIGg2TmHwOl3daiPmlhJZv4grfY003+GeLhk="
+
+
+#tables:                                                                                                                                                                                                                
+#  logs:                                                                                                                                                                                                                 
+#    replicas: 1
