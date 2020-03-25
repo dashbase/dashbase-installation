@@ -61,7 +61,7 @@ ingress:
 #      replicas: 1
 
 tablesv2:
-  logsv2:
+  logs:
     table_manager:
       replicas: 1
       containerConfig:
