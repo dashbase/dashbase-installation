@@ -12,6 +12,8 @@ DASHVERSION="1.3.2"
 AUTHUSERNAME="undefined"
 AUTHPASSWORD="undefined"
 BUCKETNAME="undefined"
+STORAGE_ACCOUNT="undefined"
+STORAGE_KEY="undefined"
 
 echo "Installer script version is $INSTALLER_VERSION"
 
@@ -82,6 +84,14 @@ while [[ $# -gt 0 ]]; do
   --authpassword)
     fail_if_empty "$PARAM" "$VALUE"
     AUTHPASSWORD=$VALUE
+    ;;
+  --storage_account)
+    fail_if_empty "$PARAM" "$VALUE"
+    STORAGE_ACCOUNT=$VALUE
+    ;;
+  --storage_key)
+    fail_if_empty "$PARAM" "$VALUE"
+    STORAGE_KEY=$VALUE
     ;;
   --basic_auth)
     BASIC_AUTH="true"
@@ -298,6 +308,16 @@ check_v2() {
     log_fatal "V2 is selected but not provide any cloud object storage bucket name"
   elif [ "$V2_FLAG" ==  "true" ] &&  [ "$BUCKETNAME" != "undefined" ]; then
     log_info "V2 is selected and bucket name is $BUCKETNAME"
+  elif [ "$V2_FLAG" ==  "true" ] && [ "$PLATFORM" == "gce" ]; then
+    log_info "V2 is selected and cloud platform is gce"
+    if [ "$STORAGE_ACCOUNT" == "undefined" ] || [ "$STORAGE_KEY" == "undefined" ]; then
+      log_fatal "V2 setup on GCE requires inputs for --storage_account and --storage_key"
+    fi
+  elif [ "$V2_FLAG" ==  "true" ] && [ "$PLATFORM" == "azure" ]; then
+    log_info "V2 is selected and cloud platform is azure"
+    if [ "$STORAGE_ACCOUNT" == "undefined" ] || [ "$STORAGE_KEY" == "undefined" ]; then
+      log_fatal "V2 setup on Azure requires inputs for --storage_account and --storage_key"
+    fi
   elif [ "$V2_FLAG" ==  "false" ]; then
     log_info "V2 is not selected in this installation"
   fi
@@ -492,10 +512,35 @@ update_dashbase_valuefile() {
     kubectl exec -it admindash-0 -n dashbase -- sed -i 's/ENABLE_CDR\:\ \"false\"/ENABLE_CDR\:\ \"true\"/' /data/dashbase-values.yaml
     kubectl exec -it admindash-0 -n dashbase -- sed -i 's/ENABLE_INSIGHTS\:\ \"false\"/ENABLE_INSIGHTS\:\ \"true\"/' /data/dashbase-values.yaml
   fi
-  # update bucket name
+  # update bucket name and storage access
   if [ "$V2_FLAG" == "true" ]; then
     log_info "update object storage bucket name"
     kubectl exec -it admindash-0 -n dashbase -- bash -c "sed -i 's|MYBUCKET|$BUCKETNAME|' /data/dashbase-values.yaml"
+
+    # update storage account and key for aws,gce,azure object storage access
+    if [ "$STORAGE_ACCOUNT" != "undefined" ] && [ "$STORAGE_KEY" != "undefined" ]; then
+       log_info "update store_access files for cloud object storage access credentials"
+       kubectl exec -it admindash-0 -n dashbase -- sed -i "s|STOREACCOUNT|$STORAGE_ACCOUNT|" /data/store_access_1
+       kubectl exec -it admindash-0 -n dashbase -- sed -i "s|STOREACCOUNT|$STORAGE_ACCOUNT|" /data/store_access_2
+       kubectl exec -it admindash-0 -n dashbase -- sed -i "s|STOREKEY|$STORAGE_KEY|" /data/store_access_1
+       kubectl exec -it admindash-0 -n dashbase -- sed -i "s|STOREKEY|$STORAGE_KEY|" /data/store_access_2
+       if [ "$PLATFORM" == "azure" ]; then
+         log_info "update store_access files with azure blob storage env variables"
+         kubectl exec -it admindash-0 -n dashbase -- sed -i "s|AWS_ACCESS_KEY_ID|AZURE_STORAGE_ACCOUNT|" /data/store_access_1
+         kubectl exec -it admindash-0 -n dashbase -- sed -i "s|AWS_ACCESS_KEY_ID|AZURE_STORAGE_ACCOUNT|" /data/store_access_2
+         kubectl exec -it admindash-0 -n dashbase -- sed -i "s|AWS_SECRET_ACCESS_KEY|AZURE_STORAGE_KEY|" /data/store_access_1
+         kubectl exec -it admindash-0 -n dashbase -- sed -i "s|AWS_SECRET_ACCESS_KEY|AZURE_STORAGE_KEY|" /data/store_access_2
+       fi
+       log_info "update dashbase-values.yaml file with store_access files"
+       kubectl exec -it admindash-0 -n dashbase -- sed -i '/searcher\:/ r store_access_1' /data/dashbase-values.yaml
+       kubectl exec -it admindash-0 -n dashbase -- sed -i '/table_manager\:/ r store_access_2' /data/dashbase-values.yaml
+       kubectl exec -it admindash-0 -n dashbase -- sed -i '/indexer\:/ r store_access_2' /data/dashbase-values.yaml
+    fi
+    # update V2 bucket mount options for gce
+    if [ "$PLATFORM" == "gce" ]; then
+      log_info "update dashbase-values.yaml file with google bucket mount options"
+      kubectl exec -it admindash-0 -n dashbase -- sed -i '/^\ \ bucket\:/ r gce_mount_options' /data/dashbase-values.yaml
+    fi
   fi
   # update keystore passwords for both dashbase and presto
   log_info "update dashbase and presto keystore password in dashbase-values.yaml"
