@@ -532,14 +532,14 @@ update_dashbase_valuefile() {
          kubectl exec -it admindash-0 -n dashbase -- sed -i "s|AWS_SECRET_ACCESS_KEY|AZURE_STORAGE_KEY|" /data/store_access_2
        fi
        log_info "update dashbase-values.yaml file with store_access files"
-       kubectl exec -it admindash-0 -n dashbase -- sed -i '/searcher\:/ r store_access_1' /data/dashbase-values.yaml
-       kubectl exec -it admindash-0 -n dashbase -- sed -i '/table_manager\:/ r store_access_2' /data/dashbase-values.yaml
-       kubectl exec -it admindash-0 -n dashbase -- sed -i '/indexer\:/ r store_access_2' /data/dashbase-values.yaml
+       kubectl exec -it admindash-0 -n dashbase -- sed -i '/searcher\:/ r /data/store_access_1' /data/dashbase-values.yaml
+       kubectl exec -it admindash-0 -n dashbase -- sed -i '/table_manager\:/ r /data/store_access_2' /data/dashbase-values.yaml
+       kubectl exec -it admindash-0 -n dashbase -- sed -i '/indexer\:/ r /data/store_access_2' /data/dashbase-values.yaml
     fi
     # update V2 bucket mount options for gce
     if [ "$PLATFORM" == "gce" ]; then
       log_info "update dashbase-values.yaml file with google bucket mount options"
-      kubectl exec -it admindash-0 -n dashbase -- sed -i '/^\ \ bucket\:/ r gce_mount_options' /data/dashbase-values.yaml
+      kubectl exec -it admindash-0 -n dashbase -- sed -i '/^\ \ bucket\:/ r /data/gce_mount_options' /data/dashbase-values.yaml
     fi
   fi
   # update keystore passwords for both dashbase and presto
