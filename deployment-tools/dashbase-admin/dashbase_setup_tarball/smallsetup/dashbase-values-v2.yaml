@@ -12,34 +12,27 @@ default:
   storage:
     class: "dashbase-meta"
     size: 10Gi
-  containerConfig:
-    resources:
-      requests:
-        cpu: 1
-        memory: 2G
-      limits:
-        cpu: 2
-        memory: 2G
+
   table:
     priorityClassName: dashbase-high-priority
     storage:
       class: "dashbase-data"
-      size: "3000Gi"
+      size: "1000Gi"
 
     containerConfig:
       resources:
         requests:
-          cpu: 7.3
+          cpu: 3.5
           memory: 26G
         limits:
-          cpu: 7.5
+          cpu: 3.5
           memory: 28G
     environment:
       JAVA_OPTS: "-Xmx20g -Xms16g"
       BLOOM_FILTER_SIZE: "400"
       MAX_BUFFER_DELAY_IN_SEC: "1000"
       RETENTION_NUM_DAYS: "14"
-      RETENTION_SIZE_GB: "2500"
+      RETENTION_SIZE_GB: "850"
       IN_MEMORY_BUFFER: "true"
       READER_CACHE_MEM_PERCENT: "60"
       NUM_INDEXING_THREADS: "2"
@@ -76,11 +69,11 @@ tablesv2:
       containerConfig:
         resources:
           requests:
-            cpu: 5
-            memory: 32G
+            cpu: 4
+            memory: 16G
           limits:
-            cpu: 5
-            memory: 32G
+            cpu: 4
+            memory: 16G
 
 services:
   etcd:
@@ -146,7 +139,7 @@ services:
           accumulate: true
   searcher:
     enabled: true
-    replicas: 2
+    replicas: 1
     containerConfig:
       resources:
         requests:
