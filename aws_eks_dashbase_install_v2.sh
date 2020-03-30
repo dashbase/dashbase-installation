@@ -372,6 +372,16 @@ check_eks_cluster() {
 # Define bucketname
 BUCKETNAME="s3-$CLUSTERNAME"
 
+create_s3() {
+  if [ "$(aws s3 ls / |grep -c $BUCKETNAME)" -eq "1" ]; then
+     log_info "S3 bucket already be created previously"
+  else
+     log_info "s3 bucekt with name %BUCKETNAME is not found, creating"
+     aws s3 mb s3://$BUCKETNAME --region $REGION
+     if [ "$(aws s3 ls s3://$BUCKETNAME > /dev/null; echo $?)" -eq "0" ]; then log_info "S3 bucket $BUCKETNAME created successfully"; else log_fatal "S3 bucket $BUCKETNAME failed to create"; fi
+  fi
+}
+
 update_s3_policy_json() {
    curl -k https://raw.githubusercontent.com/dashbase/dashbase-installation/master/deployment-tools/mydash-s3.json -o mydash-s3.json
    sed -i "s/MYDASHBUCKET/$BUCKETNAME/" mydash-s3.json
@@ -471,6 +481,7 @@ setup_dashbase() {
     echo "setup and configure dashbase, this process will take 20-30 minutes"
     if [ "$V2_FLAG" == "true" ]; then
       log_info "Dashbase V2 is selected"
+      create_s3
       update_s3_policy_json
       create_s3_bucket_policy
       insert_s3_policy_to_nodegroup
