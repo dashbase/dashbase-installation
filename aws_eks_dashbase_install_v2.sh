@@ -25,6 +25,7 @@ CMDS="curl tar unzip git openssl"
 AUTHUSERNAME="undefined"
 AUTHPASSWORD="undefined"
 V2_FLAG="false"
+BASIC_AUTH="false"
 
 echo "AWS EKS setup script version is $AWS_EKS_SCRIPT_VERSION"
 
@@ -47,7 +48,7 @@ display_help() {
   echo "     --cluster_size           default sizing, choice between small or large, default is small"
   echo "                              e.g. --cluster_size=large"
   echo "     --setup_type             default expose endpoints method, choice between ingree or lb"
-  echo "                              default setup_type is ingress, e.g. --steup_type=lb"
+  echo "                              default setup_type is ingress, e.g. --setup_type=lb"
   echo "     --subdomain              subdomain is required for default setup_type = ingress"
   echo "                              e.g. --subdomain=test.dashbase.io"
   echo "     --install_dashbase       setup dashbase after EKS setup complete, e.g. --install_dashbase"
@@ -170,6 +171,11 @@ show_spinner() {
     printf "\b\b\b\b\b\b"
   done
   printf "    \b\b\b\b"
+}
+
+show_setup() {
+ log_info "setup type is $SETUP_TYPE"
+ log_info "basic auth is $BASIC_AUTH"
 }
 
 run_by_root() {
@@ -507,11 +513,12 @@ display_bucketname() {
 }
 
 # main process below this line
-{
+#{
 run_by_root
 check_ostype
 check_commands
 check_input
+show_setup
 check_basic_auth
 setup_centos
 check_previous_mydash
@@ -520,4 +527,4 @@ setup_eks_cluster
 check_eks_cluster
 setup_dashbase
 display_bucketname
-} 2>&1 | tee -a /tmp/aws_eks_setup_"$(date +%d-%m-%Y_%H-%M-%S)".log
+#} 2>&1 | tee -a /tmp/aws_eks_setup_"$(date +%d-%m-%Y_%H-%M-%S)".log
