@@ -441,24 +441,24 @@ V2_dashbase() {
     if  [ "$CLUSTERSIZE" == "small" ]; then
       if [ "$SETUP_TYPE" == "ingress" ] && [ "$BASIC_AUTH" == "false" ]; then
          log_info "Dashbase small setup with ingress controller endpoint and no basic auth is selected"
-         dashbase-installation/deployment-tools/dashbase-installer-smallsetup.sh --platform=aws --v2 --ingress --subdomain=$SUBDOMAIN
+         dashbase-installation/deployment-tools/dashbase-installer-smallsetup.sh --platform=aws --v2 --ingress --subdomain=$SUBDOMAIN --bucketname=$BUCKETNAME
       elif [ "$SETUP_TYPE" == "ingress" ] && [ "$BASIC_AUTH" == "true" ]; then
          log_info "Dashbase small setup with ingress controller endpoint and basic auth is selected"
-         dashbase-installation/deployment-tools/dashbase-installer-smallsetup.sh --platform=aws --v2 --ingress --subdomain=$SUBDOMAIN --basic_auth --authusername=$AUTHUSERNAME --authpassword=$AUTHPASSWORD
+         dashbase-installation/deployment-tools/dashbase-installer-smallsetup.sh --platform=aws --v2 --ingress --subdomain=$SUBDOMAIN --basic_auth --authusername=$AUTHUSERNAME --authpassword=$AUTHPASSWORD --bucketname=$BUCKETNAME
       else
          log_info "Dashbase small setup with load balancer endpoint is selected"
-         dashbase-installation/deployment-tools/dashbase-installer-smallsetup.sh --platform=aws --v2
+         dashbase-installation/deployment-tools/dashbase-installer-smallsetup.sh --platform=aws --v2 --bucketname=$BUCKETNAME
       fi
     elif [ "$CLUSTERSIZE" == "large" ]; then
       if [ "$SETUP_TYPE" == "ingress" ] && [ "$BASIC_AUTH" == "false" ]; then
          log_info "Dashbase large setup with ingress controller endpoint and no basic auth is selected"
-         dashbase-installation/dashbase-installer.sh --platform=aws --v2 --ingress --subdomain=$SUBDOMAIN
+         dashbase-installation/dashbase-installer.sh --platform=aws --v2 --ingress --subdomain=$SUBDOMAIN --bucketname=$BUCKETNAME
       elif [ "$SETUP_TYPE" == "ingress" ] && [ "$BASIC_AUTH" == "true" ]; then
          log_info "Dashbase large setup with ingress controller endpoint and basic auth is selected"
-         dashbase-installation/dashbase-installer.sh --platform=aws --v2 --ingress --subdomain=$SUBDOMAIN --basic_auth --authusername=$AUTHUSERNAME --authpassword=$AUTHPASSWORD
+         dashbase-installation/dashbase-installer.sh --platform=aws --v2 --ingress --subdomain=$SUBDOMAIN --basic_auth --authusername=$AUTHUSERNAME --authpassword=$AUTHPASSWORD --bucketname=$BUCKETNAME
       else
          log_info "Dashbase small setup with load balancer endpoint is selected"
-         dashbase-installation/dashbase-installer.sh --platform=aws --v2
+         dashbase-installation/dashbase-installer.sh --platform=aws --v2 --bucketname=$BUCKETNAME
       fi
     fi
 }
