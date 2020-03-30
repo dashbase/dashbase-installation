@@ -16,6 +16,7 @@ SETUP_TYPE="ingress"
 CMDS="curl tar unzip git openssl"
 AUTHUSERNAME="undefined"
 AUTHPASSWORD="undefined"
+BASIC_AUTH="false"
 
 # log functions and input flag setup
 function log_info() {
