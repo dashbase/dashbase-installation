@@ -15,7 +15,7 @@ BUCKETNAME="undefined"
 STORAGE_ACCOUNT="undefined"
 STORAGE_KEY="undefined"
 
-echo "Installer script version is $INSTALLER_VERSION poc setup"
+echo "Installer script version is $INSTALLER_VERSION tiny setup for install testing only"
 
 display_help() {
   echo "Usage: $0 [options...]"
