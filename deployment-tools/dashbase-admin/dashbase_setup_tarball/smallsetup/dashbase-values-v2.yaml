@@ -69,10 +69,10 @@ tablesv2:
       containerConfig:
         resources:
           requests:
-            cpu: 4
+            cpu: 2
             memory: 16G
           limits:
-            cpu: 4
+            cpu: 2
             memory: 16G
 
 services:
