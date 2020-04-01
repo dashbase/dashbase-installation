@@ -19,13 +19,17 @@ INSTYPE="r5.xlarge"
 NODENUM=2
 CLUSTERNAME="mydash$RSTRING"
 CLUSTERSIZE="small"
-ZONE="a"
+ZONEA="a"
+ZONEB="b"
+ZONEC="c"
 SETUP_TYPE="ingress"
 CMDS="curl tar unzip git openssl"
 AUTHUSERNAME="undefined"
 AUTHPASSWORD="undefined"
 V2_FLAG="false"
 BASIC_AUTH="false"
+KUBECTLVERSION="1.15"
+
 
 echo "AWS EKS setup script version is $AWS_EKS_SCRIPT_VERSION"
 
@@ -59,8 +63,16 @@ display_help() {
   echo "                              e.g. --authpassword=dashbase"
   echo "     --v2                     setup dashbase V2, e.g.  --v2"
   echo ""
-  echo "   Command example"
+  echo "   Command example in V1"
   echo "   ./aws_eks_dashbase_install.sh --aws_access_key=YOURAWSACCESSKEY \ "
+  echo "                                 --aws_secret_access_key=YOURACESSSECRETACCESSKEY \ "
+  echo "                                 --region=us-west-2 --subdomain=test.dashase.io  \ "
+  echo "                                 --install_dashbase --basic_auth\ "
+  echo "                                 --authusername=admin \ "
+  echo "                                 --authpassword=dashbase"
+  echo ""
+  echo "   Command example in V2"
+  echo "   ./aws_eks_dashbase_install.sh --v2 --aws_access_key=YOURAWSACCESSKEY \ "
   echo "                                 --aws_secret_access_key=YOURACESSSECRETACCESSKEY \ "
   echo "                                 --region=us-west-2 --subdomain=test.dashase.io  \ "
   echo "                                 --install_dashbase --basic_auth\ "
@@ -99,6 +111,9 @@ while [[ $# -gt 0 ]]; do
   shift 1
 
   case $PARAM in
+  --help)
+    display_help
+    ;;
   --aws_access_key)
     fail_if_empty "$PARAM" "$VALUE"
     AWS_ACCESS_KEY=$VALUE
@@ -225,7 +240,7 @@ check_input() {
     log_info "Instance type used on EKS cluster = $INSTYPE"
     log_info "Number of worker nodes in EKS cluster = $NODENUM"
     log_info "The EKS cluster name = $CLUSTERNAME"
-    log_info "The EKS cluster nodegroup is located on $REGION$ZONE"
+    log_info "The EKS cluster nodegroup is located on $REGION$ZONEA"
   fi
   if [ "$INSTALL_DASHBASE" == "true" ]; then
      log_info "Dashbase installation is selected"
@@ -356,7 +371,10 @@ setup_eks_cluster() {
   # compare vpc count with max vpc limit , the vpc count should be less than vpc limit
   if [ "$(/usr/local/bin/aws ec2 describe-vpcs --region $REGION --output text |grep -c VPCS)" -lt $VPC_LIMIT ]; then
     log_info "creating AWS eks cluster, please wait. This process will take 15-20 minutes"
-    /usr/local/bin/eksctl create cluster --managed --name $CLUSTERNAME --region $REGION --version 1.14 --node-type $INSTYPE --nodegroup-name standard-workers --nodes $NODENUM --node-zones $REGION$ZONE --nodes-max $NODENUM --nodes-min $NODENUM
+    date +"%T"
+    echo "/usr/local/bin/eksctl create cluster --managed --name $CLUSTERNAME --region $REGION --version $KUBECTLVERSION --node-type $INSTYPE --nodegroup-name standard-workers --zones $REGION$ZONEA,$REGION$ZONEB --nodes $NODENUM --node-zones $REGION$ZONEA --nodes-max $NODENUM --nodes-min $NODENUM"
+    /usr/local/bin/eksctl create cluster --managed --name $CLUSTERNAME --region $REGION --version $KUBECTLVERSION --node-type $INSTYPE --nodegroup-name standard-workers --zones $REGION$ZONEA,$REGION$ZONEB --nodes $NODENUM --node-zones $REGION$ZONEA --nodes-max $NODENUM --nodes-min $NODENUM
+    date +"%T"
   else
     log_fatal "Specified EKS cluser region may not have sufficient capacity for additional VPC"
   fi

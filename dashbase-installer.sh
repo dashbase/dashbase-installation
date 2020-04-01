@@ -14,6 +14,7 @@ AUTHPASSWORD="undefined"
 BUCKETNAME="undefined"
 STORAGE_ACCOUNT="undefined"
 STORAGE_KEY="undefined"
+PRESTO_FLAG="false"
 
 echo "Installer script version is $INSTALLER_VERSION"
 
@@ -37,6 +38,7 @@ display_help() {
   echo "                    e.g. --authpassword=dashbase"
   echo "     --valuefile    specify a custom values yaml file"
   echo "                    e.g. --valuefile=/tmp/mydashbase_values.yaml"
+  echo "     --presto       enable presto component e.g. --presto"
   echo "     --help         display command options and usage example"
   echo ""
   echo "   The following options only be used on V2 dashbase"
@@ -44,11 +46,11 @@ display_help() {
   echo "     --bucketname       cloud object storage bucketname"
   echo "                        e.g. --bucketname=my-s3-bucket"
   echo "     --storage_account  cloud object storage account value, in AWS is the ACCESS KEY"
-  echo "                        e.g. --storage_account=GOOGBZRBBY5CDTMVEN4E"
+  echo "                        e.g. --storage_account=MYSTORAGEACCOUNTSTRING"
   echo "     --storage_key      cloud object storage key, in AWS is the ACCESS SECRET"
-  echo "                        e.g. --storage_key=jIgJUyNW7eiMFItbwfDWrnsNkTCsLvlPc"
+  echo "                        e.g. --storage_key=MYSTORAGEACCOUNTACCESSKEY"
   echo ""
-  echo "   Command example"
+  echo "   Command example in V1"
   echo "   ./dashbase-installer.sh --platform=aws --ingress --subdomain=test.dashbase.io"
   echo ""
   echo "   Command example in V2"
@@ -150,6 +152,9 @@ while [[ $# -gt 0 ]]; do
     ;;
   --ucaas)
     UCAAS_FLAG="true"
+    ;;
+  --presto)
+    PRESTO_FLAG="true"
     ;;
   *)
     log_fatal "Unknown parameter ($PARAM) with ${VALUE:-no value}"
@@ -543,6 +548,12 @@ update_dashbase_valuefile() {
   else
     log_info "use $VERSION in dashbase_version on dashbase-values.yaml"
     kubectl exec -it admindash-0 -n dashbase -- sed -i "s|dashbase_version: nightly|dashbase_version: $VERSION|" /data/dashbase-values.yaml
+  fi
+  # enabling presto
+  if [ "$PRESTO_FLAG" == "true" ]; then
+     log_info "enabling presto and updating dashbase-values.yaml file"
+     kubectl exec -it admindash-0 -n dashbase -- sed -i '/^presto\:/{n;d}' /data/dashbase-values.yaml
+     kubectl exec -it admindash-0 -n dashbase -- sed -i '/^presto\:/a \ \ enabled\:\ true' /data/dashbase-values.yaml
   fi
   # update basic auth
   if [ "$BASIC_AUTH" == "true" ]; then
