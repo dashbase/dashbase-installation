@@ -1,0 +1,11 @@
+{
+  "description": "Dashbase CDR pipeline for FreeSWITCH",
+  "processors": [
+    {
+      "urldecode": {
+        "field": "user-agent",
+        "ignore_missing": true
+      }
+    }
+  ]
+}
