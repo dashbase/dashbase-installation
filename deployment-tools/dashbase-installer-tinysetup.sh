@@ -16,6 +16,7 @@ STORAGE_ACCOUNT="undefined"
 STORAGE_KEY="undefined"
 PRESTO_FLAG="false"
 TABLENAME="logs"
+CDR_FLAG="false "
 
 echo "Installer script version is $INSTALLER_VERSION tiny setup for install testing only"
 
@@ -42,6 +43,7 @@ display_help() {
   echo "     --presto       enable presto component e.g. --presto"
   echo "     --tablename        dashbase table name, default table name is logs"
   echo "                        e.g. --tablename=freeswitch"
+  echo "     --cdr          enable cdr log data for insight page  e.g. --cdr"
   echo "     --help         display command options and usage example"
   echo ""
   echo "   The following options only be used on V2 dashbase"
@@ -131,6 +133,9 @@ while [[ $# -gt 0 ]]; do
     ;;
   --v2)
     V2_FLAG="true"
+    ;;
+  --cdr)
+    CDR_FLAG="true"
     ;;
   --authusername)
     fail_if_empty "$PARAM" "$VALUE"
@@ -577,8 +582,12 @@ update_dashbase_valuefile() {
     kubectl exec -it admindash-0 -n dashbase -- sed -i '/exporter\:/!b;n;c\ \ \ \ enabled\: true' /data/dashbase-values.yaml
     kubectl exec -it admindash-0 -n dashbase -- sed -i 's/ENABLE_UCAAS\:\ \"false\"/ENABLE_UCAAS\:\ \"true\"/' /data/dashbase-values.yaml
     kubectl exec -it admindash-0 -n dashbase -- sed -i 's/ENABLE_CALL\:\ \"false\"/ENABLE_CALL\:\ \"true\"/' /data/dashbase-values.yaml
-    kubectl exec -it admindash-0 -n dashbase -- sed -i 's/INSIGHTS_IS_CDR\:\ \"false\"/INSIGHTS_IS_CDR\:\ \"true\"/' /data/dashbase-values.yaml
     kubectl exec -it admindash-0 -n dashbase -- sed -i 's/ENABLE_INSIGHTS\:\ \"false\"/ENABLE_INSIGHTS\:\ \"true\"/' /data/dashbase-values.yaml
+  fi
+  # update CDR log data for insight
+  if [ "$CDR_FLAG" == "true" ]; then
+     log_info "update dashbase-values.yaml file for CDR data in insights page"
+     kubectl exec -it admindash-0 -n dashbase -- sed -i 's/INSIGHTS_IS_CDR\:\ \"false\"/INSIGHTS_IS_CDR\:\ \"true\"/' /data/dashbase-values.yaml
   fi
   # update bucket name and storage access
   if [ "$V2_FLAG" == "true" ]; then
