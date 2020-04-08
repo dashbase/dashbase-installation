@@ -1,11 +1,71 @@
 #!/bin/bash
 
+INSTALLER_VERSION="1.4.0"
 PLATFORM="undefined"
 INGRESS_FLAG="false"
+V2_FLAG="false"
+UCAAS_FLAG="false"
 VALUEFILE="dashbase-values.yaml"
 USERNAME="undefined"
 LICENSE="undefined"
-DASHVERSION="1.3.0-rc3"
+DASHVERSION="1.4.0-rc10"
+AUTHUSERNAME="undefined"
+AUTHPASSWORD="undefined"
+BUCKETNAME="undefined"
+STORAGE_ACCOUNT="undefined"
+STORAGE_KEY="undefined"
+PRESTO_FLAG="false"
+TABLENAME="logs"
+CDR_FLAG="false "
+
+echo "Installer script version is $INSTALLER_VERSION poc setup"
+
+display_help() {
+  echo "Usage: $0 [options...]"
+  echo ""
+  echo "   all options usage e.g. --option_key=value  or --option_key"
+  echo "     --platform     aws/azure/gce  e.g. --platform=aws"
+  echo "     --version      dashbase version e.g. --version=1.3.2"
+  echo "     --ingress      exposed dashbase services using ingress controller  e.g. --ingress"
+  echo "     --subdomain    use together with ingress option e.g.  --subdomain=test.dashbase.io"
+  echo "     --username     dashbase license username e.g. --username=myname"
+  echo "     --license      dashbase license string  e.g. --license=my_license_string"
+  echo "     --exposemon    expose dashbase prometheus and pushgateway endpoints when using LB (not ingress)"
+  echo "                    e.g.  --exposemon"
+  echo "     --basic_auth   use basic auth to secure dashbase web UX e.g.  --basic_auth"
+  echo "                    basic auth requires authusername and authpassword options"
+  echo "     --authusername basic auth username, use together with basic_auth option"
+  echo "                    e.g. --authusername=admin"
+  echo "     --authpassword basic auth password, use together with authusername option"
+  echo "                    e.g. --authpassword=dashbase"
+  echo "     --valuefile    specify a custom values yaml file"
+  echo "                    e.g. --valuefile=/tmp/mydashbase_values.yaml"
+  echo "     --presto       enable presto component e.g. --presto"
+  echo "     --tablename        dashbase table name, default table name is logs"
+  echo "                        e.g. --tablename=freeswitch"
+  echo "     --cdr          enable cdr log data for insight page  e.g. --cdr"
+  echo "     --help         display command options and usage example"
+  echo ""
+  echo "   The following options only be used on V2 dashbase"
+  echo "     --v2               setup dashbase V2"
+  echo "     --bucketname       cloud object storage bucketname"
+  echo "                        e.g. --bucketname=my-s3-bucket"
+  echo "     --storage_account  cloud object storage account value, in AWS is the ACCESS KEY"
+  echo "                        e.g. --storage_account=MYSTORAGEACCOUNTSTRING"
+  echo "     --storage_key      cloud object storage key, in AWS is the ACCESS SECRET"
+  echo "                        e.g. --storage_key=MYSTORAGEACCOUNTACCESSKEY"
+  echo ""
+  echo "   Command example in V1"
+  echo "   ./dashbase-installer-smallsetup.sh --platform=aws --ingress --subdomain=test.dashbase.io"
+  echo ""
+  echo "   Command example in V2"
+  echo "   ./dashbase-installer-smallsetup.sh --platform=aws --v2 --ingress \ "
+  echo "                                      --subdomain=test.dashase.io --bucketname=my-s3-bucket \ "
+  echo "                                      --storage_account=MYSTORAGEACCOUNTSTRING \ "
+  echo "                                      --storage_key=MYSTORAGEACCOUNTACCESSKEY \ "
+  echo ""
+  exit 0
+}
 
 # log functions and input flag setup
 function log_info() {
@@ -36,6 +96,9 @@ while [[ $# -gt 0 ]]; do
   shift 1
 
   case $PARAM in
+  --help)
+    display_help
+    ;;
   --subdomain)
     fail_if_empty "$PARAM" "$VALUE"
     SUBDOMAIN=$VALUE
@@ -60,11 +123,50 @@ while [[ $# -gt 0 ]]; do
     fail_if_empty "$PARAM" "$VALUE"
     LICENSE=$VALUE
     ;;
+  --bucketname)
+    fail_if_empty "$PARAM" "$VALUE"
+    BUCKETNAME=$VALUE
+    ;;
+  --tablename)
+    fail_if_empty "$PARAM" "$VALUE"
+    TABLENAME=$VALUE
+    ;;
+  --v2)
+    V2_FLAG="true"
+    ;;
+  --cdr)
+    CDR_FLAG="true"
+    ;;
+  --authusername)
+    fail_if_empty "$PARAM" "$VALUE"
+    AUTHUSERNAME=$VALUE
+    ;;
+  --authpassword)
+    fail_if_empty "$PARAM" "$VALUE"
+    AUTHPASSWORD=$VALUE
+    ;;
+  --storage_account)
+    fail_if_empty "$PARAM" "$VALUE"
+    STORAGE_ACCOUNT=$VALUE
+    ;;
+  --storage_key)
+    fail_if_empty "$PARAM" "$VALUE"
+    STORAGE_KEY=$VALUE
+    ;;
+  --basic_auth)
+    BASIC_AUTH="true"
+    ;;
   --ingress)
     INGRESS_FLAG="true"
     ;;
   --exposemon)
     EXPOSEMON="--exposemon"
+    ;;
+  --ucaas)
+    UCAAS_FLAG="true"
+    ;;
+  --presto)
+    PRESTO_FLAG="true"
     ;;
   *)
     log_fatal "Unknown parameter ($PARAM) with ${VALUE:-no value}"
@@ -221,6 +323,69 @@ check_version() {
   fi
 }
 
+check_ostype() {
+  if [[ $OSTYPE == *"darwin"* ]]; then
+    log_info "Dedected current workstation OS is mac"
+  elif [[ $OSTYPE == *"linux"* ]]; then
+    #log_info "Dedected current workstation is a linux"
+    LINUXTYPE=$(cat /etc/os-release |grep NAME |grep -iv "_" |sed 's/\"//g' |cut -d "=" -f2 |awk '{print $1}')
+    if [ "$LINUXTYPE" ==  "CentOS" ]; then
+      log_info "Dedected current workstation OS is centos"
+    elif [ "$LINUXTYPE" ==  "Ubuntu" ]; then
+      log_info "Dedected current workstation OS is ubuntu"
+    fi
+  else
+    log_warning "Dedected current workstation OS is neither mac, centos, ubuntu"
+  fi
+}
+
+check_basic_auth() {
+  # check basic auth input
+  if [ "$BASIC_AUTH" != "true" ]; then
+    log_info "Basic auth setting is not selected"
+  else
+    log_info "Basic auth is selected and checks input auth username and password"
+    if [ "$AUTHUSERNAME" == "undefined" ] | [ "$AUTHPASSWORD" == "undefined" ]; then
+      log_fatal "Either basic auth username or password is not entered"
+    else
+      if  [[ "$AUTHUSERNAME" =~ [^a-zA-Z0-9] ]] && [[ "$AUTHPASSWORD" =~ [^a-zA-Z0-9] ]]  ; then
+        log_fatal "The entered auth username or password is not alphanumeric"
+      else
+         log_info "The entered auth usermane is $AUTHUSERNAME"
+         log_info "The entered auth password is $AUTHPASSWORD"
+      fi
+    fi
+  fi
+  # check basic auth dependency
+  # basic auth only works in ingres and requires ingress be true and non null subdomain string
+  if [ "$BASIC_AUTH" == "true" ] && [ "$INGRESS_FLAG" != "true" ]; then
+    log_fatal "Basic auth is selected but not selecting --ingress for installer script"
+  elif [ "$BASIC_AUTH" == "true" ] && [ -z "$SUBDOMAIN" ]; then
+    log_fatal "Basic auth is selected but not providing --subdomain=sub.example.com string for installer script"
+  fi
+}
+
+check_v2() {
+  # check v2 input
+  if [ "$V2_FLAG" ==  "true" ] && [ "$BUCKETNAME" == "undefined" ]; then
+    log_fatal "V2 is selected but not provide any cloud object storage bucket name"
+  elif [ "$V2_FLAG" ==  "true" ] &&  [ "$BUCKETNAME" != "undefined" ]; then
+    log_info "V2 is selected and bucket name is $BUCKETNAME"
+  elif [ "$V2_FLAG" ==  "true" ] && [ "$PLATFORM" == "gce" ]; then
+    log_info "V2 is selected and cloud platform is gce"
+    if [ "$STORAGE_ACCOUNT" == "undefined" ] || [ "$STORAGE_KEY" == "undefined" ]; then
+      log_fatal "V2 setup on GCE requires inputs for --storage_account and --storage_key"
+    fi
+  elif [ "$V2_FLAG" ==  "true" ] && [ "$PLATFORM" == "azure" ]; then
+    log_info "V2 is selected and cloud platform is azure"
+    if [ "$STORAGE_ACCOUNT" == "undefined" ] || [ "$STORAGE_KEY" == "undefined" ]; then
+      log_fatal "V2 setup on Azure requires inputs for --storage_account and --storage_key"
+    fi
+  elif [ "$V2_FLAG" ==  "false" ]; then
+    log_info "V2 is not selected in this installation"
+  fi
+}
+
 preflight_check() {
   # preflight checks
   log_info "OS type running this script is $OSTYPE"
@@ -279,7 +444,8 @@ adminpod_setup() {
     # Download and install installer helper statefulset yaml file
     curl -k https://raw.githubusercontent.com/dashbase/dashbase-installation/master/deployment-tools/config/admindash-sts_helm3.yaml -o admindash-sts_helm3.yaml
     kubectl apply -f admindash-sts_helm3.yaml -n dashbase
-    kubectl wait --for=condition=Ready pods/admindash-0 --timeout=60s -n dashbase
+    log_info "setting up admin pod, please wait for three minutes"
+    kubectl wait --for=condition=Ready pods/admindash-0 --timeout=180s -n dashbase
     # Check to ensure admin pod is available else exit 1
     APODSTATUS=$(kubectl wait --for=condition=Ready pods/admindash-0 -n dashbase | grep -c "condition met")
     if [ "$APODSTATUS" -eq "1" ]; then echo "Admin Pod is available"; else log_fatal "Admin Pod  admindash-0 is not available"; fi
@@ -314,24 +480,37 @@ create_storageclass() {
     log_info "create storageclass for AWS disk"
     kubectl exec -it admindash-0 -n dashbase -- bash -c "kubectl apply -f /data/dashbase-data-aws.yaml -n dashbase"
     kubectl exec -it admindash-0 -n dashbase -- bash -c "kubectl apply -f /data/dashbase-meta-aws.yaml -n dashbase"
+    kubectl exec -it admindash-0 -n dashbase -- bash -c "kubectl apply -f /data/dashbase-indexer-aws.yaml -n dashbase"
+
   elif [ "$PLATFORM" == "gce" ]; then
     log_info "create storageclass for GCE disk"
     kubectl exec -it admindash-0 -n dashbase -- bash -c "kubectl apply -f /data/dashbase-data-gce.yaml -n dashbase"
     kubectl exec -it admindash-0 -n dashbase -- bash -c "kubectl apply -f /data/dashbase-meta-gce.yaml -n dashbase"
+    kubectl exec -it admindash-0 -n dashbase -- bash -c "kubectl apply -f /data/dashbase-indexer-gce.yaml -n dashbase"
   elif [ "$PLATFORM" == "azure" ]; then
     log_info "create storageclass for Azure disk"
     kubectl exec -it admindash-0 -n dashbase -- bash -c "kubectl apply -f /data/dashbase-data-azure.yaml -n dashbase"
+    kubectl exec -it admindash-0 -n dashbase -- bash -c "kubectl apply -f /data/dashbase-indexer-azure.yaml -n dashbase"
   fi
   kubectl exec -it admindash-0 -n dashbase -- bash -c "kubectl get storageclass |grep dashbase"
   STORECLASSCHK=$(kubectl get storageclass | grep -c dashbase)
-  if [ "$STORECLASSCHK" -eq "2" ]; then echo "Dashbase storageclasses are available"; else log_fatal "Dashbase storageclasses not found"; fi
+  if [ "$STORECLASSCHK" -eq "3" ]; then echo "Dashbase storageclasses are available"; else log_fatal "Dashbase storageclasses not found"; fi
 }
 
 download_dashbase() {
   # download and update the dashbase helm value yaml files
   log_info "Downloading dashbase setup tar file from Github"
-  kubectl exec -it admindash-0 -n dashbase -- bash -c "wget -O /data/dashbase_setup_small_nolicx.tar https://github.com/dashbase/dashbase-installation/raw/master/deployment-tools/dashbase-admin/dashbase_setup_tarball/smallsetup/dashbase_setup_small_nolicx.tar"
-  kubectl exec -it admindash-0 -n dashbase -- bash -c "tar -xvf /data/dashbase_setup_small_nolicx.tar -C /data/"
+  kubectl exec -it admindash-0 -n dashbase -- bash -c "wget -O /data/dashbase_setup_nolicy.tar  https://github.com/dashbase/dashbase-installation/raw/master/deployment-tools/dashbase-admin/dashbase_setup_tarball/dashbase_setup_nolicy.tar"
+  kubectl exec -it admindash-0 -n dashbase -- bash -c "tar -xvf /data/dashbase_setup_nolicy.tar -C /data/"
+  # get the custom values yaml file
+  if [ "$V2_FLAG" == "true" ]; then
+    log_info "Download dashbase-values-v2.yaml file for v2 setup"
+    kubectl exec -it admindash-0 -n dashbase -- bash -c "wget -O /data/dashbase-values.yaml https://github.com/dashbase/dashbase-installation/raw/master/deployment-tools/dashbase-admin/dashbase_setup_tarball/smallsetup/dashbase-values-v2.yaml"
+  else
+    log_info "Download dashbase-values.yaml file for v1 setup"
+    kubectl exec -it admindash-0 -n dashbase -- bash -c "wget -O /data/dashbase-values.yaml https://github.com/dashbase/dashbase-installation/raw/master/deployment-tools/dashbase-admin/dashbase_setup_tarball/smallsetup/dashbase-values.yaml"
+  fi
+
   kubectl exec -it admindash-0 -n dashbase -- bash -c "chmod a+x /data/*.sh"
   # create sym link for dashbase custom values yaml from /dashbase
   kubectl exec -it admindash-0 -n dashbase -- bash -c "ln -s /data/dashbase-values.yaml  /dashbase/dashbase-values.yaml"
@@ -382,6 +561,64 @@ update_dashbase_valuefile() {
     log_info "use $VERSION in dashbase_version on dashbase-values.yaml"
     kubectl exec -it admindash-0 -n dashbase -- sed -i "s|dashbase_version: nightly|dashbase_version: $VERSION|" /data/dashbase-values.yaml
   fi
+  # enabling presto
+  if [ "$PRESTO_FLAG" == "true" ]; then
+     log_info "enabling presto and updating dashbase-values.yaml file"
+     kubectl exec -it admindash-0 -n dashbase -- sed -i '/^presto\:/{n;d}' /data/dashbase-values.yaml
+     kubectl exec -it admindash-0 -n dashbase -- sed -i '/^presto\:/a \ \ enabled\:\ true' /data/dashbase-values.yaml
+  fi
+  # update basic auth
+  if [ "$BASIC_AUTH" == "true" ]; then
+    log_info "update dashbase-values.yaml file for basic auth"
+    kubectl exec -it admindash-0 -n dashbase -- sed -i '/web\:/!b;n;c\ \ \ \ expose\: false' /data/dashbase-values.yaml
+  fi
+  # update table name
+  log_info "update dashbase-values.yaml file with table name = $TABLENAME"
+  kubectl exec -it admindash-0 -n dashbase -- sed -i "s|LOGS|$TABLENAME" /data/dashbase-values.yaml
+
+  # update ucaas feature
+  if [ "$UCAAS_FLAG" == "true" ]; then
+    log_info "update dashbase-values.yaml file to enable UCAAS features"
+    kubectl exec -it admindash-0 -n dashbase -- sed -i '/exporter\:/!b;n;c\ \ \ \ enabled\: true' /data/dashbase-values.yaml
+    kubectl exec -it admindash-0 -n dashbase -- sed -i 's/ENABLE_UCAAS\:\ \"false\"/ENABLE_UCAAS\:\ \"true\"/' /data/dashbase-values.yaml
+    kubectl exec -it admindash-0 -n dashbase -- sed -i 's/ENABLE_CALL\:\ \"false\"/ENABLE_CALL\:\ \"true\"/' /data/dashbase-values.yaml
+    kubectl exec -it admindash-0 -n dashbase -- sed -i 's/ENABLE_INSIGHTS\:\ \"false\"/ENABLE_INSIGHTS\:\ \"true\"/' /data/dashbase-values.yaml
+  fi
+  # update CDR log data for insight
+  if [ "$CDR_FLAG" == "true" ]; then
+     log_info "update dashbase-values.yaml file for CDR data in insights page"
+     kubectl exec -it admindash-0 -n dashbase -- sed -i 's/INSIGHTS_IS_CDR\:\ \"false\"/INSIGHTS_IS_CDR\:\ \"true\"/' /data/dashbase-values.yaml
+  fi
+  # update bucket name and storage access
+  if [ "$V2_FLAG" == "true" ]; then
+    log_info "update object storage bucket name"
+    kubectl exec -it admindash-0 -n dashbase -- bash -c "sed -i 's|MYBUCKET|$BUCKETNAME|' /data/dashbase-values.yaml"
+
+    # update storage account and key for aws,gce,azure object storage access
+    if [ "$STORAGE_ACCOUNT" != "undefined" ] && [ "$STORAGE_KEY" != "undefined" ]; then
+       log_info "update store_access files for cloud object storage access credentials"
+       kubectl exec -it admindash-0 -n dashbase -- sed -i "s|STOREACCOUNT|$STORAGE_ACCOUNT|" /data/store_access_1
+       kubectl exec -it admindash-0 -n dashbase -- sed -i "s|STOREACCOUNT|$STORAGE_ACCOUNT|" /data/store_access_2
+       kubectl exec -it admindash-0 -n dashbase -- sed -i "s|STOREKEY|$STORAGE_KEY|" /data/store_access_1
+       kubectl exec -it admindash-0 -n dashbase -- sed -i "s|STOREKEY|$STORAGE_KEY|" /data/store_access_2
+       if [ "$PLATFORM" == "azure" ]; then
+         log_info "update store_access files with azure blob storage env variables"
+         kubectl exec -it admindash-0 -n dashbase -- sed -i "s|AWS_ACCESS_KEY_ID|AZURE_STORAGE_ACCOUNT|" /data/store_access_1
+         kubectl exec -it admindash-0 -n dashbase -- sed -i "s|AWS_ACCESS_KEY_ID|AZURE_STORAGE_ACCOUNT|" /data/store_access_2
+         kubectl exec -it admindash-0 -n dashbase -- sed -i "s|AWS_SECRET_ACCESS_KEY|AZURE_STORAGE_KEY|" /data/store_access_1
+         kubectl exec -it admindash-0 -n dashbase -- sed -i "s|AWS_SECRET_ACCESS_KEY|AZURE_STORAGE_KEY|" /data/store_access_2
+       fi
+       log_info "update dashbase-values.yaml file with store_access files"
+       kubectl exec -it admindash-0 -n dashbase -- sed -i '/searcher\:/ r /data/store_access_1' /data/dashbase-values.yaml
+       kubectl exec -it admindash-0 -n dashbase -- sed -i '/table_manager\:/ r /data/store_access_2' /data/dashbase-values.yaml
+       kubectl exec -it admindash-0 -n dashbase -- sed -i '/indexer\:/ r /data/store_access_2' /data/dashbase-values.yaml
+    fi
+    # update V2 bucket mount options for gce
+    if [ "$PLATFORM" == "gce" ]; then
+      log_info "update dashbase-values.yaml file with google bucket mount options"
+      kubectl exec -it admindash-0 -n dashbase -- sed -i '/^\ \ bucket\:/ r /data/gce_mount_options' /data/dashbase-values.yaml
+    fi
+  fi
   # update keystore passwords for both dashbase and presto
   log_info "update dashbase and presto keystore password in dashbase-values.yaml"
   kubectl exec -it admindash-0 -n dashbase -- bash -c "cd /data ; /data/configure_presto.sh"
@@ -415,6 +652,13 @@ create_sslcert() {
   fi
 }
 
+create_basic_auth_secret() {
+  log_info "create basic auth secret in admin pod"
+  kubectl exec -it admindash-0 -n dashbase -- htpasswd -b -c /data/auth "$AUTHUSERNAME" "$AUTHPASSWORD"
+  kubectl exec -it admindash-0 -n dashbase -- kubectl create secret generic dashbase-auth --from-file=/data/auth -n dashbase
+  kubectl get secret dashbase-auth -n dashbase
+}
+
 install_dashbase() {
   DASHVALUEFILE=$(echo $VALUEFILE | rev | cut -d"/" -f1 | rev)
   log_info "the filename for dashbase value yaml file is $DASHVALUEFILE"
@@ -442,6 +686,15 @@ expose_endpoints() {
     # get the exposed IP address from nginx ingress controller
     EXTERNAL_IP=$(kubectl exec -it admindash-0 -n dashbase -- kubectl get svc nginx-ingress-controller -n dashbase | tail -n +2 | awk '{ print $4}')
     log_info "the exposed IP address for web and tables endpoint is $EXTERNAL_IP"
+    # Add basic auth ingress
+    if [ "$BASIC_AUTH" == "true" ]; then
+      log_info "Creating ingress for web with basic auth"
+      create_basic_auth_secret
+      # update ingress-web.yaml with subdomain name
+      kubectl exec -it admindash-0 -n dashbase -- bash -c "sed -i 's|test.dashbase.io|$SUBDOMAIN|' /data/ingress-web.yaml"
+      # apply the ingress-web.yaml into K8s cluster
+      kubectl exec -it admindash-0 -n dashbase -- bash -c "kubectl apply -f /data/ingress-web.yaml -n dashbase"
+    fi
   else
     log_info "setup LoadBalancer with https endpoints to expose services"
     kubectl exec -it admindash-0 -n dashbase -- bash -c "/data/create-lb.sh --https $EXPOSEMON"
@@ -454,8 +707,10 @@ expose_endpoints() {
 {
 check_platform_input
 check_ingress_subdomain
+check_basic_auth
 check_version
 check_license
+check_v2
 preflight_check
 
 # install admin pod
@@ -474,13 +729,6 @@ else
   create_storageclass
 fi
 
-# setup helm tiller
-#if [ "$(kubectl get pod -n kube-system | grep -c tiller)" -gt "0" ]; then
-#  log_fatal "previous tiller pod exists in this K8s cluster"
-#else
-#  echo "creating tiller in K8s"
-#  setup_helm_tiller
-#fi
 check_helm
 create_sslcert
 

@@ -14,9 +14,29 @@
       ./aws_eks_dashbase_install.sh  --aws_access_key=YOURAWSACCESSKEY \
                                      --aws_secret_access_key=YOURACESSSECRETACCESSKEY \
                                      --region=YOURREGION --subdomain=YOURSUBDOMAIN --install_dashbase
+                                     
+     
+     Enable basic auth when installing dashbase during EKS cluster setup
+     --basic_auth
+     --authusername
+     --authpassword
+  
+     ./aws_eks_dashbase_install.sh   --aws_access_key=YOURAWSACCESSKEY \
+                                     --aws_secret_access_key=YOURACESSSECRETACCESSKEY \
+                                     --region=YOURREGION --subdomain=YOURSUBDOMAIN --install_dashbase \
+                                     --basic_auth
+                                     --authusername=admin
+                                     --authpassword=dashbase
+                                     
+     For V2 setup
+     
+     ./aws_eks_dashbase_install.sh   --v2 --aws_access_key=YOURAWSACCESSKEY \
+                                     --aws_secret_access_key=YOURACESSSECRETACCESSKEY \
+                                     --region=YOURREGION --subdomain=YOURSUBDOMAIN --install_dashbase
+      
 
 ```
-This will create EKS cluster with three t3.medium nodes in the region specified and install dashbase on this cluster.
+This will create EKS cluster with two r5.xlarge nodes in the region specified and install dashbase on this cluster.
 
 Installation process saves progress information into log file in current working directory:
 ```
@@ -42,7 +62,7 @@ deployment-tools/remove_aws_eks.sh --region=REGION
 
 Pre-reqs:
 ```
- 1. You have K8s cluster with minimum 3 nodes of t3.medium or equivalent
+ 1. You have K8s cluster with minimum 2 nodes of r5.xlarge or equivalent
  2. You have kubectl command installed and able to access K8s cluster
  3. You cloned Dashbase installation repository with:
     git clone https://github.com/dashbase/dashbase-installation.git
@@ -72,15 +92,36 @@ install script options
                    e.g. --username=scott
     --license      dashbase license string 
                    e.g. --license=Aertyujk8903HJKLBNMLOP34erTui
+    --basic_auth   enable basic authentication via default ingress controller
+    --authusername basic auth username
+                   e.g. --authusername=admin
+    --authpassword basic auth password
+                   e.g. --authpassword=dashbase
+    --valuefile    specifiy a custom dashbase values yaml file. 
+                   dashbase setup will base on provided custom values yaml file only.
+                   e.g. --valuefile=/tmp/my-dashbase-values.yaml
+                   
+    The following options only be valid on V2 dashbase
+    
+    --v2               setup dashbase V2
+    --bucketname       cloud object storage bucketname
+                       e.g. --bucketname=my-s3-dashbase
+    --storgae_account  cloud storage account value, in AWS is the ACCESS KEY
+                       e.g. --storage_account=MYSTORAGEACCOUNTSTRING"
+    --storage_key      cloud object storage key, in AWS is the ACCESS SECRET
+                       e.g. --storage_key=MYSTORAGEACCOUNTACCESSKEY"
     
     
-examples of using ingress, on AWS platform
+    
+###Examples of using ingress, on AWS platform
+
+By default the dashbase-installer.sh script will use Load Balancer on K8s to expose the web and table endpoints. If you like to expose these endpoints using nginx ingress controller, then use the ingress flag, see below.
 
     ./dashbase-installer.sh --subdomain=raytest.dashbase.io --ingress --platform=aws
 
-The standard installation requires minium 3 nodes with 8 CPU, and 64 GB Ram per node.
+The standard installation requires minium 2 nodes with 8 CPU, and 64 GB Ram per node.
 
-For smaller setup such as 3 X t3.medium ( 3 X  2cpu + 4GB ram), use the dashbase-installer-smallsetup.sh inside the deployment-tools folder
+For smaller setup such as 2 X r5.xlarge 2 X (4cpu + 32GB ram), use the dashbase-installer-smallsetup.sh inside the deployment-tools folder
 
 ```
 ./deployment-tools/dashbase-installer-smallsetup.sh --platform=aws

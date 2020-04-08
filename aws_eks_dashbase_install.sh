@@ -1,8 +1,16 @@
 #!/bin/bash
 
+# This script requires openssl
+command -v openssl > /dev/null
+if [[ "${?}" -ne 0 ]]; then
+  printf "openssl is not installed, exiting\\n"
+  exit 1
+fi
+
 RANDOM=$(openssl rand -hex 3 > randomstring)
 RSTRING=$(cat randomstring)
 
+AWS_EKS_SCRIPT_VERSION="1.4.0"
 AWS_ACCESS_KEY="undefined"
 AWS_SECRET_ACCESS_KEY="undefined"
 REGION="us-east-2"
@@ -11,9 +19,57 @@ INSTYPE="r5.xlarge"
 NODENUM=2
 CLUSTERNAME="mydash$RSTRING"
 CLUSTERSIZE="small"
-ZONE="a"
+ZONEA="a"
+ZONEB="b"
+ZONEC="c"
 SETUP_TYPE="ingress"
 CMDS="curl tar unzip git openssl"
+AUTHUSERNAME="undefined"
+AUTHPASSWORD="undefined"
+BASIC_AUTH="false"
+KUBECTLVERSION="1.15"
+
+echo "AWS EKS setup script version is $AWS_EKS_SCRIPT_VERSION"
+
+display_help() {
+  echo "Usage: $0 [options...]"
+  echo ""
+  echo "   all options usage  e.g. --option_key=value  or --option_key"
+  echo ""
+  echo "     --aws_access_key         AWS ACCESS KEY "
+  echo "                              e.g. --aws_access_key=YOURAWSACCESSKEY"
+  echo "     --aws_secret_access_key  AWS SECRET ACCESS KEY"
+  echo "                              e.g. --aws_secret_access_key=YOURACESSSECRETACCESSKEY"
+  echo "     --region                 AWS region e.g. --region=us-west-2"
+  echo "     --instance_type          AWS instance type, default is r5.xlarge"
+  echo "                              e.g. --instance_type=c5.2xlarge"
+  echo "     --nodes_number           number of EKS worker nodes, default is 2"
+  echo "                              e.g. --nodes_number=4"
+  echo "     --cluster_name           EKS cluster name, default is mydash appends 6 characters"
+  echo "                              e.g. --cluster_name=myclustername"
+  echo "     --cluster_size           default sizing, choice between small or large, default is small"
+  echo "                              e.g. --cluster_size=large"
+  echo "     --setup_type             default expose endpoints method, choice between ingree or lb"
+  echo "                              default setup_type is ingress, e.g. --setup_type=lb"
+  echo "     --subdomain              subdomain is required for default setup_type = ingress"
+  echo "                              e.g. --subdomain=test.dashbase.io"
+  echo "     --install_dashbase       setup dashbase after EKS setup complete, e.g. --install_dashbase"
+  echo "     --basic_auth             enable basic auth on web UX, e.g. --basic_auth"
+  echo "     --authusername           basic auth username, use together with basic_auth option"
+  echo "                              e.g. --authusername=admin"
+  echo "     --authpassword           basic auth password, use together with authusername option"
+  echo "                              e.g. --authpassword=dashbase"
+  echo ""
+  echo "   Command example in V1"
+  echo "   ./aws_eks_dashbase_install.sh --aws_access_key=YOURAWSACCESSKEY \ "
+  echo "                                 --aws_secret_access_key=YOURACESSSECRETACCESSKEY \ "
+  echo "                                 --region=us-west-2 --subdomain=test.dashase.io  \ "
+  echo "                                 --install_dashbase --basic_auth\ "
+  echo "                                 --authusername=admin \ "
+  echo "                                 --authpassword=dashbase"
+  echo ""
+  exit 0
+}
 
 # log functions and input flag setup
 function log_info() {
@@ -44,6 +100,9 @@ while [[ $# -gt 0 ]]; do
   shift 1
 
   case $PARAM in
+  --help)
+    display_help
+    ;;
   --aws_access_key)
     fail_if_empty "$PARAM" "$VALUE"
     AWS_ACCESS_KEY=$VALUE
@@ -75,6 +134,17 @@ while [[ $# -gt 0 ]]; do
   --setup_type)
     fail_if_empty "$PARAM" "$VALUE"
     SETUP_TYPE=$VALUE
+    ;;
+  --authusername)
+    fail_if_empty "$PARAM" "$VALUE"
+    AUTHUSERNAME=$VALUE
+    ;;
+  --authpassword)
+    fail_if_empty "$PARAM" "$VALUE"
+    AUTHPASSWORD=$VALUE
+    ;;
+  --basic_auth)
+    BASIC_AUTH="true"
     ;;
   --subdomain)
     fail_if_empty "$PARAM" "$VALUE"
@@ -118,13 +188,13 @@ check_commands() {
 
 check_ostype() {
   if [[ $OSTYPE == *"darwin"* ]]; then
-    log_fatal "Dedected current workstation is a mac"
+    log_fatal "Dedected current workstation is a mac, this script only tested on linux"
     WKOSTYPE="mac"
   elif [[ $OSTYPE == *"linux"* ]]; then
     log_info "Dedected current workstation is a linux"
     WKOSTYPE="linux"
   else
-    log_fatal "This script is only tested on linux and mac; and fail to detect the current worksattion os type"
+    log_fatal "This script is only tested on linux; and fail to detect the current worksattion os type"
   fi
 }
 
@@ -150,7 +220,7 @@ check_input() {
     log_info "Instance type used on EKS cluster = $INSTYPE"
     log_info "Number of worker nodes in EKS cluster = $NODENUM"
     log_info "The EKS cluster name = $CLUSTERNAME"
-    log_info "The EKS cluster nodegroup is located on $REGION$ZONE"
+    log_info "The EKS cluster nodegroup is located on $REGION$ZONEA"
   fi
   if [ "$INSTALL_DASHBASE" == "true" ]; then
      log_info "Dashbase installation is selected"
@@ -225,6 +295,32 @@ setup_centos() {
   export PATH=$PATH:/usr/local/bin/kubectl:/usr/local/bin/helm:/usr/local/bin/eksctl
 }
 
+check_basic_auth() {
+  # check basic auth input
+  if [ "$BASIC_AUTH" != "true" ]; then
+    log_info "Basic auth setting is not selected"
+  else
+    log_info "Basic auth is selected and checks input auth username and password"
+    if [ "$AUTHUSERNAME" == "undefined" ] | [ "$AUTHPASSWORD" == "undefined" ]; then
+      log_fatal "Either basic auth username or password is not entered"
+    else
+      if  [[ "$AUTHUSERNAME" =~ [^a-zA-Z0-9] ]] && [[ "$AUTHPASSWORD" =~ [^a-zA-Z0-9] ]]  ; then
+        log_fatal "The entered auth username or password is not alphanumeric"
+      else
+         log_info "The entered auth usermane is $AUTHUSERNAME"
+         log_info "The entered auth password is $AUTHPASSWORD"
+      fi
+    fi
+  fi
+  # check basic auth dependency
+  # basic auth only works in ingres and requires ingress be true and non null subdomain string
+  if [ "$BASIC_AUTH" == "true" ] && [ "$SETUP_TYPE" != "ingress" ]; then
+    log_fatal "Basic auth is selected but not setup type is not selecting ingress, please check your options"
+  elif [ "$BASIC_AUTH" == "true" ] && [ -z "$SUBDOMAIN" ]; then
+    log_fatal "Basic auth is selected but not providing --subdomain=sub.example.com string for installer script"
+  fi
+}
+
 check_previous_mydash() {
   echo "Checking exiting EKS clusters in $REGION"
   PREVIOUSEKS=$(aws eks list-clusters --region $REGION | grep mydash | sed -e 's/\"//g' | sed -e 's/^[ \t]*//')
@@ -254,7 +350,10 @@ setup_eks_cluster() {
   # compare vpc count with max vpc limit , the vpc count should be less than vpc limit
   if [ "$(/usr/local/bin/aws ec2 describe-vpcs --region $REGION --output text |grep -c VPCS)" -lt $VPC_LIMIT ]; then
     log_info "creating AWS eks cluster, please wait. This process will take 15-20 minutes"
-    /usr/local/bin/eksctl create cluster --managed --name $CLUSTERNAME --region $REGION --version 1.14 --node-type $INSTYPE --nodegroup-name standard-workers --nodes $NODENUM --node-zones $REGION$ZONE --nodes-max $NODENUM --nodes-min $NODENUM
+    date +"%T"
+    echo "/usr/local/bin/eksctl create cluster --managed --name $CLUSTERNAME --region $REGION --version $KUBECTLVERSION --node-type $INSTYPE --nodegroup-name standard-workers --zones $REGION$ZONEA,$REGION$ZONEB --nodes $NODENUM --node-zones $REGION$ZONEA --nodes-max $NODENUM --nodes-min $NODENUM"
+    /usr/local/bin/eksctl create cluster --managed --name $CLUSTERNAME --region $REGION --version $KUBECTLVERSION --node-type $INSTYPE --nodegroup-name standard-workers --zones $REGION$ZONEA,$REGION$ZONEB --nodes $NODENUM --node-zones $REGION$ZONEA --nodes-max $NODENUM --nodes-min $NODENUM
+    date +"%T"
   else
     log_fatal "Specified EKS cluser region may not have sufficient capacity for additional VPC"
   fi
@@ -281,17 +380,23 @@ setup_dashbase() {
     /usr/bin/git clone https://github.com/dashbase/dashbase-installation.git
     echo "setup and configure dashbase, this process will take 20-30 minutes"
     if  [ "$CLUSTERSIZE" == "small" ]; then
-      if [ "$SETUP_TYPE" == "ingress" ]; then
-         log_info "Dashbase small setup with ingress controller endpoint is selected"
+      if [ "$SETUP_TYPE" == "ingress" ] && [ "$BASIC_AUTH" == "false" ]; then
+         log_info "Dashbase small setup with ingress controller endpoint and no basic auth is selected"
          dashbase-installation/deployment-tools/dashbase-installer-smallsetup.sh --platform=aws --ingress --subdomain=$SUBDOMAIN
+      elif [ "$SETUP_TYPE" == "ingress" ] && [ "$BASIC_AUTH" == "true" ]; then
+         log_info "Dashbase small setup with ingress controller endpoint and basic auth is selected"
+         dashbase-installation/deployment-tools/dashbase-installer-smallsetup.sh --platform=aws --ingress --subdomain=$SUBDOMAIN --basic_auth --authusername=$AUTHUSERNAME --authpassword=$AUTHPASSWORD
       else
          log_info "Dashbase small setup with load balancer endpoint is selected"
          dashbase-installation/deployment-tools/dashbase-installer-smallsetup.sh --platform=aws
       fi
     elif [ "$CLUSTERSIZE" == "large" ]; then
-      if [ "$SETUP_TYPE" == "ingress" ]; then
-         log_info "Dashbase large setup with ingress controller endpoint is selected"
+      if [ "$SETUP_TYPE" == "ingress" ] && [ "$BASIC_AUTH" == "false" ]; then
+         log_info "Dashbase large setup with ingress controller endpoint and no basic auth is selected"
          dashbase-installation/dashbase-installer.sh --platform=aws --ingress --subdomain=$SUBDOMAIN
+      elif [ "$SETUP_TYPE" == "ingress" ] && [ "$BASIC_AUTH" == "true" ]; then
+         log_info "Dashbase large setup with ingress controller endpoint and basic auth is selected"
+         dashbase-installation/dashbase-installer.sh --platform=aws --ingress --subdomain=$SUBDOMAIN --basic_auth --authusername=$AUTHUSERNAME --authpassword=$AUTHPASSWORD
       else
          log_info "Dashbase small setup with load balancer endpoint is selected"
          dashbase-installation/dashbase-installer.sh --platform=aws
@@ -308,6 +413,7 @@ run_by_root
 check_ostype
 check_commands
 check_input
+check_basic_auth
 setup_centos
 check_previous_mydash
 check_max_vpc_limit
