@@ -23,6 +23,10 @@ data:
         static_configs:
           - targets:
             - prometheus:9090
+
+#    remote_write:
+#      - url: "http://storage-adapter-service.dashbase.svc.cluster.local/receive"
+
 ---
 apiVersion: apps/v1
 kind: Deployment
