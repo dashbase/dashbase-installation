@@ -589,6 +589,7 @@ update_dashbase_valuefile() {
   if [ "$CDR_FLAG" == "true" ]; then
      log_info "update dashbase-values.yaml file for CDR data in insights page"
      kubectl exec -it admindash-0 -n dashbase -- sed -i 's/INSIGHTS_IS_CDR\:\ \"false\"/INSIGHTS_IS_CDR\:\ \"true\"/' /data/dashbase-values.yaml
+     kubectl exec -it admindash-0 -n dashbase -- cat /data/exporter_metric.yaml >> /data/dashbase-values.yaml
   fi
   # update bucket name and storage access
   if [ "$V2_FLAG" == "true" ]; then

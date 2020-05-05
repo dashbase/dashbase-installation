@@ -128,6 +128,17 @@ services:
     enabled: false
   pushgateway:
     enabled: true
+  searcher:
+    enabled: true
+    replicas: 1
+    containerConfig:
+      resources:
+        requests:
+          cpu: 1
+          memory: 5G
+        limits:
+          cpu: 1
+          memory: 5G
   exporter:
     enabled: false
     config:
@@ -138,14 +149,4 @@ services:
           accumulate: false
           filter: "type:sip"
           aggregation: "topn(hostname, 100, topn(user-agent, 100, cardinality(call-id)))"
-  searcher:
-    enabled: true
-    replicas: 1
-    containerConfig:
-      resources:
-        requests:
-          cpu: 1
-          memory: 2G
-        limits:
-          cpu: 1
-          memory: 2G
+

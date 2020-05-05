@@ -135,16 +135,6 @@ services:
     enabled: false
   pushgateway:
     enabled: true
-  exporter:
-    enabled: false
-    config:
-      metrics:
-        ucaas_unique_leg_count:
-          description: "ucaas unique call legs"
-          table: "LOGS"
-          accumulate: false
-          filter: "type:sip"
-          aggregation: "topn(hostname, 100, topn(user-agent, 100, cardinality(call-id)))"
   searcher:
     enabled: true
     replicas: 1
@@ -156,3 +146,14 @@ services:
         limits:
           cpu: 1
           memory: 5G
+  exporter:
+    enabled: false
+    config:
+      metrics:
+        ucaas_unique_leg_count:
+          description: "ucaas unique call legs"
+          table: "LOGS"
+          accumulate: false
+          filter: "type:sip"
+          aggregation: "topn(hostname, 100, topn(user-agent, 100, cardinality(call-id)))"
+
