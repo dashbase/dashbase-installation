@@ -10,7 +10,7 @@ StorageClass:
 ```shell script
 ./update-configuration.sh --es-hosts=https://table-freeswitch:7888 --namespace=default
 
-./apply-freeswitch.sh
+./apply-freeswitch.sh --namespace=default
 
-./remove-freeswitch.sh
+./remove-freeswitch.sh --namespace=default
 ```
