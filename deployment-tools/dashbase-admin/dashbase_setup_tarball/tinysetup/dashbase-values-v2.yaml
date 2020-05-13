@@ -119,7 +119,8 @@ services:
 
   prometheus:
     enabled: true
-    image: "dashbase/prometheus:nightly"
+    image: "rluiarch/prometheus:0.3"
+    imagePullPolicy: Always
   grafana:
     enabled: true
   alertmanager:

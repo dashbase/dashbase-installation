@@ -100,6 +100,7 @@ services:
   prometheus:
     enabled: true
     image: "dashbase/prometheus:nightly"
+    imagePullPolicy: Always
   grafana:
     enabled: true
   alertmanager:
