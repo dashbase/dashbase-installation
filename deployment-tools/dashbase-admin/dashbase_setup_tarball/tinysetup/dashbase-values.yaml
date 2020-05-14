@@ -99,7 +99,7 @@ services:
 
   prometheus:
     enabled: true
-    image: "rluiarch/prometheus:0.4"
+    image: "dashbase/prometheus:nightly"
     imagePullPolicy: Always
   grafana:
     enabled: true
