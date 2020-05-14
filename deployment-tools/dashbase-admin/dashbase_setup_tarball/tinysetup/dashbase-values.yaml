@@ -99,7 +99,7 @@ services:
 
   prometheus:
     enabled: true
-    image: "rluiarch/prometheus:0.3"
+    image: "rluiarch/prometheus:0.4"
     imagePullPolicy: Always
   grafana:
     enabled: true
