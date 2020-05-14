@@ -586,7 +586,7 @@ update_dashbase_valuefile() {
   # update webrtc remote read url for prometheus
   if [ "$WEBRTC_FLAG" == "true" ]; then
     log_info "update prometheus configuration to enable remote read url point to https://api:9876/prometheus/read"
-    kubectl exec -it admindash-0 -n dashbase -- sed -i '/prometheus\:/ r /data/prometheus_webrtc' /data/dashbase-values.yaml
+    kubectl exec -it admindash-0 -n dashbase -- sed -i '/prometheus\_env\_variable/ r /data/prometheus_webrtc' /data/dashbase-values.yaml
   fi
   # update bucket name and storage access
   if [ "$V2_FLAG" == "true" ]; then
