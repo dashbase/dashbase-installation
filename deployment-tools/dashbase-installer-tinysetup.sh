@@ -9,7 +9,6 @@ UCAAS_FLAG="false"
 VALUEFILE="dashbase-values.yaml"
 USERNAME="undefined"
 LICENSE="undefined"
-DASHVERSION="1.4.0"
 AUTHUSERNAME="undefined"
 AUTHPASSWORD="undefined"
 BUCKETNAME="undefined"
@@ -21,7 +20,7 @@ CDR_FLAG="false "
 DEMO_FLAG="false"
 WEBRTC_FLAG="false"
 
-echo "Installer script version is $INSTALLER_VERSION tiny setup for install testing only"
+echo "Installer script version is $INSTALLER_VERSION"
 
 display_help() {
   echo "Usage: $0 [options...]"
@@ -62,13 +61,13 @@ display_help() {
   echo "                        e.g. --storage_key=MYSTORAGEACCOUNTACCESSKEY"
   echo ""
   echo "   Command example in V1"
-  echo "   ./dashbase-installer-tinysetup.sh --platform=aws --ingress --subdomain=test.dashbase.io"
+  echo "   ./dashbase-installer.sh --platform=aws --ingress --subdomain=test.dashbase.io"
   echo ""
   echo "   Command example in V2"
-  echo "   ./dashbase-installer-tinysetup.sh --platform=aws --v2 --ingress \ "
-  echo "                                     --subdomain=test.dashase.io --bucketname=my-s3-bucket \ "
-  echo "                                     --storage_account=MYSTORAGEACCOUNTSTRING \ "
-  echo "                                     --storage_key=MYSTORAGEACCOUNTACCESSKEY \ "
+  echo "   ./dashbase-installer.sh --platform=aws --v2 --ingress \ "
+  echo "                           --subdomain=test.dashase.io --bucketname=my-s3-bucket \ "
+  echo "                           --storage_account=MYSTORAGEACCOUNTSTRING \ "
+  echo "                           --storage_key=MYSTORAGEACCOUNTACCESSKEY \ "
   echo ""
   exit 0
 }
@@ -275,11 +274,11 @@ check_k8s_permission() {
 check_node_cpu() {
   ## check nodes resources
   if [[ "$2" =~ ^([0-9]+)m$ ]]; then
-    if [[ ${BASH_REMATCH[1]} -ge 1800 ]]; then
+    if [[ ${BASH_REMATCH[1]} -ge 6000 ]]; then
       return 0
     fi
   elif [[ "$2" =~ ^([0-9]+)$ ]]; then
-    if [[ ${BASH_REMATCH[1]} -ge 2 ]]; then
+    if [[ ${BASH_REMATCH[1]} -ge 6 ]]; then
       return 0
     fi
   else
@@ -290,15 +289,15 @@ check_node_cpu() {
 
 check_node_memory() {
   if [[ "$2" =~ ^([0-9]+)Ki?$ ]]; then
-    if [[ ${BASH_REMATCH[1]} -ge 3000000 ]]; then
+    if [[ ${BASH_REMATCH[1]} -ge 60000000 ]]; then
       return 0
     fi
   elif [[ "$2" =~ ^([0-9]+)Mi?$ ]]; then
-    if [[ ${BASH_REMATCH[1]} -ge 3000 ]]; then
+    if [[ ${BASH_REMATCH[1]} -ge 60000 ]]; then
       return 0
     fi
   elif [[ "$2" =~ ^([0-9]+)Gi?$ ]]; then
-    if [[ ${BASH_REMATCH[1]} -ge 3 ]]; then
+    if [[ ${BASH_REMATCH[1]} -ge 60 ]]; then
       return 0
     fi
   else
@@ -309,11 +308,11 @@ check_node_memory() {
 
 check_node() {
   if ! check_node_cpu "$1" "$2"; then
-    echo "Node($1) doesn't have enough cpu resources(4core at least)."
+    echo "Node($1) doesn't have enough cpu resources(8 core at least)."
     return 0
   fi
   if ! check_node_memory "$1" "$3"; then
-    echo "Node($1) doesn't have enough memory resources(32Gi at least)."
+    echo "Node($1) doesn't have enough memory resources(64Gi at least)."
     return 0
   fi
 
@@ -429,7 +428,7 @@ preflight_check() {
   if [ $AVAIILABLE_NODES -ge 2 ]; then
     log_info "This cluster is ready for dashbase installation on resources"
   else
-    log_fatal "This cluster doesn't have enough resources for dashbase installation(2 nodes with each have 4 core and 32 Gi at least)."
+    log_fatal "This cluster doesn't have enough resources for dashbase installation(3 nodes with each have 8 core and 64 Gi at least)."
   fi
 }
 
@@ -517,10 +516,10 @@ download_dashbase() {
   # get the custom values yaml file
   if [ "$V2_FLAG" == "true" ]; then
     log_info "Download dashbase-values-v2.yaml file for v2 setup"
-    kubectl exec -it admindash-0 -n dashbase -- bash -c "wget -O /data/dashbase-values.yaml https://github.com/dashbase/dashbase-installation/raw/master/deployment-tools/dashbase-admin/dashbase_setup_tarball/tinysetup/dashbase-values-v2.yaml"
+    kubectl exec -it admindash-0 -n dashbase -- bash -c "wget -O /data/dashbase-values.yaml https://github.com/dashbase/dashbase-installation/raw/master/deployment-tools/dashbase-admin/dashbase_setup_tarball/largesetup/dashbase-values-v2.yaml"
   else
     log_info "Download dashbase-values.yaml file for v1 setup"
-    kubectl exec -it admindash-0 -n dashbase -- bash -c "wget -O /data/dashbase-values.yaml https://github.com/dashbase/dashbase-installation/raw/master/deployment-tools/dashbase-admin/dashbase_setup_tarball/tinysetup/dashbase-values.yaml"
+    kubectl exec -it admindash-0 -n dashbase -- bash -c "wget -O /data/dashbase-values.yaml https://github.com/dashbase/dashbase-installation/raw/master/deployment-tools/dashbase-admin/dashbase_setup_tarball/largesetup/dashbase-values.yaml"
   fi
 
   kubectl exec -it admindash-0 -n dashbase -- bash -c "chmod a+x /data/*.sh"
