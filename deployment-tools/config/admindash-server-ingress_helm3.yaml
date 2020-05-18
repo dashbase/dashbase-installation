@@ -1,0 +1,25 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    meta.helm.sh/release-name: dashbase
+    nginx.ingress.kubernetes.io/backend-protocol: HTTP
+    nginx.ingress.kubernetes.io/proxy-body-size: 64m
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "600"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
+  labels:
+    app: dashbase
+    app.kubernetes.io/managed-by: Helm
+    component: ingress
+  name: ingress-admindash
+  namespace: dashbase
+spec:
+  rules:
+    - host: admindash.test.dashbase.io
+      http:
+        paths:
+          - backend:
+              serviceName: admindash
+              servicePort: 5000

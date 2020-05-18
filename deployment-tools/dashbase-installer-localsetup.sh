@@ -9,6 +9,7 @@ UCAAS_FLAG="false"
 VALUEFILE="dashbase-values.yaml"
 USERNAME="undefined"
 LICENSE="undefined"
+DASHVERSION="1.4.0"
 AUTHUSERNAME="undefined"
 AUTHPASSWORD="undefined"
 BUCKETNAME="undefined"
@@ -16,12 +17,11 @@ STORAGE_ACCOUNT="undefined"
 STORAGE_KEY="undefined"
 PRESTO_FLAG="false"
 TABLENAME="logs"
-CDR_FLAG="false"
-ADMIN_SERVER_ENABLED="false"
+CDR_FLAG="false "
 DEMO_FLAG="false"
 WEBRTC_FLAG="false"
 
-echo "Installer script version is $INSTALLER_VERSION"
+echo "Installer script version is $INSTALLER_VERSION tiny setup for install testing only"
 
 display_help() {
   echo "Usage: $0 [options...]"
@@ -48,7 +48,6 @@ display_help() {
   echo "                        e.g. --tablename=freeswitch"
   echo "     --ucaas        enable ucaas feature  e.g. --ucaas"
   echo "     --cdr          enable cdr log data for insight page  e.g. --cdr"
-  echo "     --admin-server enable admin server"
   echo "     --help         display command options and usage example"
   echo "     --webrtc       enable remote read on prometheus to api url for webrtc data e.g. --webrtc"
   echo "     --demo         setup freeswitch,filebeat pods and feed log data into the target table"
@@ -63,13 +62,13 @@ display_help() {
   echo "                        e.g. --storage_key=MYSTORAGEACCOUNTACCESSKEY"
   echo ""
   echo "   Command example in V1"
-  echo "   ./dashbase-installer.sh --platform=aws --ingress --subdomain=test.dashbase.io"
+  echo "   ./dashbase-installer-tinysetup.sh --platform=aws --ingress --subdomain=test.dashbase.io"
   echo ""
   echo "   Command example in V2"
-  echo "   ./dashbase-installer.sh --platform=aws --v2 --ingress \ "
-  echo "                           --subdomain=test.dashase.io --bucketname=my-s3-bucket \ "
-  echo "                           --storage_account=MYSTORAGEACCOUNTSTRING \ "
-  echo "                           --storage_key=MYSTORAGEACCOUNTACCESSKEY \ "
+  echo "   ./dashbase-installer-tinysetup.sh --platform=aws --v2 --ingress \ "
+  echo "                                     --subdomain=test.dashase.io --bucketname=my-s3-bucket \ "
+  echo "                                     --storage_account=MYSTORAGEACCOUNTSTRING \ "
+  echo "                                     --storage_key=MYSTORAGEACCOUNTACCESSKEY \ "
   echo ""
   exit 0
 }
@@ -143,9 +142,6 @@ while [[ $# -gt 0 ]]; do
     ;;
   --cdr)
     CDR_FLAG="true"
-    ;;
-  --admin-server)
-    ADMIN_SERVER_ENABLED="true"
     ;;
   --authusername)
     fail_if_empty "$PARAM" "$VALUE"
@@ -279,11 +275,11 @@ check_k8s_permission() {
 check_node_cpu() {
   ## check nodes resources
   if [[ "$2" =~ ^([0-9]+)m$ ]]; then
-    if [[ ${BASH_REMATCH[1]} -ge 6000 ]]; then
+    if [[ ${BASH_REMATCH[1]} -ge 1800 ]]; then
       return 0
     fi
   elif [[ "$2" =~ ^([0-9]+)$ ]]; then
-    if [[ ${BASH_REMATCH[1]} -ge 6 ]]; then
+    if [[ ${BASH_REMATCH[1]} -ge 2 ]]; then
       return 0
     fi
   else
@@ -294,15 +290,15 @@ check_node_cpu() {
 
 check_node_memory() {
   if [[ "$2" =~ ^([0-9]+)Ki?$ ]]; then
-    if [[ ${BASH_REMATCH[1]} -ge 60000000 ]]; then
+    if [[ ${BASH_REMATCH[1]} -ge 3000000 ]]; then
       return 0
     fi
   elif [[ "$2" =~ ^([0-9]+)Mi?$ ]]; then
-    if [[ ${BASH_REMATCH[1]} -ge 60000 ]]; then
+    if [[ ${BASH_REMATCH[1]} -ge 3000 ]]; then
       return 0
     fi
   elif [[ "$2" =~ ^([0-9]+)Gi?$ ]]; then
-    if [[ ${BASH_REMATCH[1]} -ge 60 ]]; then
+    if [[ ${BASH_REMATCH[1]} -ge 3 ]]; then
       return 0
     fi
   else
@@ -313,11 +309,11 @@ check_node_memory() {
 
 check_node() {
   if ! check_node_cpu "$1" "$2"; then
-    echo "Node($1) doesn't have enough cpu resources(8 core at least)."
+    echo "Node($1) doesn't have enough cpu resources(4core at least)."
     return 0
   fi
   if ! check_node_memory "$1" "$3"; then
-    echo "Node($1) doesn't have enough memory resources(64Gi at least)."
+    echo "Node($1) doesn't have enough memory resources(32Gi at least)."
     return 0
   fi
 
@@ -433,7 +429,7 @@ preflight_check() {
   if [ $AVAIILABLE_NODES -ge 2 ]; then
     log_info "This cluster is ready for dashbase installation on resources"
   else
-    log_fatal "This cluster doesn't have enough resources for dashbase installation(3 nodes with each have 8 core and 64 Gi at least)."
+    log_fatal "This cluster doesn't have enough resources for dashbase installation(2 nodes with each have 4 core and 32 Gi at least)."
   fi
 }
 
@@ -458,13 +454,8 @@ adminpod_setup() {
     log_fatal "Previous admin pod admindash exists"
   else
     # Download and install installer helper statefulset yaml file
-    if [[ "$ADMIN_SERVER_ENABLED" == "true" ]]; then
-      curl -k https://raw.githubusercontent.com/dashbase/dashbase-installation/dashbase-admin-prototype/deployment-tools/config/admindash-server-sts_helm3.yaml -o admindash-server-sts_helm3.yaml
-      kubectl apply -f admindash-server-sts_helm3.yaml -n dashbase
-    else
-      curl -k https://raw.githubusercontent.com/dashbase/dashbase-installation/master/deployment-tools/config/admindash-sts_helm3.yaml -o admindash-sts_helm3.yaml
-      kubectl apply -f admindash-sts_helm3.yaml -n dashbase
-    fi
+    curl -k https://raw.githubusercontent.com/dashbase/dashbase-installation/master/deployment-tools/config/admindash-sts_helm3.yaml -o admindash-sts_helm3.yaml
+    kubectl apply -f admindash-sts_helm3.yaml -n dashbase
     log_info "setting up admin pod, please wait for three minutes"
     kubectl wait --for=condition=Ready pods/admindash-0 --timeout=180s -n dashbase
     # Check to ensure admin pod is available else exit 1
@@ -502,6 +493,7 @@ create_storageclass() {
     kubectl exec -it admindash-0 -n dashbase -- bash -c "kubectl apply -f /data/dashbase-data-aws.yaml -n dashbase"
     kubectl exec -it admindash-0 -n dashbase -- bash -c "kubectl apply -f /data/dashbase-meta-aws.yaml -n dashbase"
     kubectl exec -it admindash-0 -n dashbase -- bash -c "kubectl apply -f /data/dashbase-indexer-aws.yaml -n dashbase"
+
   elif [ "$PLATFORM" == "gce" ]; then
     log_info "create storageclass for GCE disk"
     kubectl exec -it admindash-0 -n dashbase -- bash -c "kubectl apply -f /data/dashbase-data-gce.yaml -n dashbase"
@@ -511,9 +503,6 @@ create_storageclass() {
     log_info "create storageclass for Azure disk"
     kubectl exec -it admindash-0 -n dashbase -- bash -c "kubectl apply -f /data/dashbase-data-azure.yaml -n dashbase"
     kubectl exec -it admindash-0 -n dashbase -- bash -c "kubectl apply -f /data/dashbase-indexer-azure.yaml -n dashbase"
-  elif [ "$PLATFORM" == "docker" ]; then
-    log_info "create storageclass for docker"
-    kubectl exec -it admindash-0 -n dashbase -- bash -c "kubectl apply -f /data/dashbase-sc-docker.yaml -n dashbase"
   fi
   kubectl exec -it admindash-0 -n dashbase -- bash -c "kubectl get storageclass |grep dashbase"
   STORECLASSCHK=$(kubectl get storageclass | grep -c dashbase)
@@ -528,10 +517,10 @@ download_dashbase() {
   # get the custom values yaml file
   if [ "$V2_FLAG" == "true" ]; then
     log_info "Download dashbase-values-v2.yaml file for v2 setup"
-    kubectl exec -it admindash-0 -n dashbase -- bash -c "wget -O /data/dashbase-values.yaml https://github.com/dashbase/dashbase-installation/raw/master/deployment-tools/dashbase-admin/dashbase_setup_tarball/largesetup/dashbase-values-v2.yaml"
+    kubectl exec -it admindash-0 -n dashbase -- bash -c "wget -O /data/dashbase-values.yaml https://github.com/dashbase/dashbase-installation/raw/master/deployment-tools/dashbase-admin/dashbase_setup_tarball/tinysetup/dashbase-values-v2.yaml"
   else
     log_info "Download dashbase-values.yaml file for v1 setup"
-    kubectl exec -it admindash-0 -n dashbase -- bash -c "wget -O /data/dashbase-values.yaml https://github.com/dashbase/dashbase-installation/raw/master/deployment-tools/dashbase-admin/dashbase_setup_tarball/largesetup/dashbase-values.yaml"
+    kubectl exec -it admindash-0 -n dashbase -- bash -c "wget -O /data/dashbase-values.yaml https://github.com/dashbase/dashbase-installation/raw/master/deployment-tools/dashbase-admin/dashbase_setup_tarball/tinysetup/dashbase-values.yaml"
   fi
 
   kubectl exec -it admindash-0 -n dashbase -- bash -c "chmod a+x /data/*.sh"
@@ -727,31 +716,9 @@ expose_endpoints() {
       # apply the ingress-web.yaml into K8s cluster
       kubectl exec -it admindash-0 -n dashbase -- bash -c "kubectl apply -f /data/ingress-web.yaml -n dashbase"
     fi
-    curl -k https://raw.githubusercontent.com/dashbase/dashbase-installation/dashbase-admin-prototype/deployment-tools/config/admindash-server-ingress_helm3.yaml -o admindash-server-ingress_helm3.yaml
-    sed -i 's|test.dashbase.io|$SUBDOMAIN|' /data/dashbase-values.yaml
-    kubectl apply -f admindash-server-ingress_helm3.yaml -n dashbase
   else
     log_info "setup LoadBalancer with https endpoints to expose services"
-    if [[ "$ADMIN_SERVER_ENABLED" == "true" ]]; then
-      EXPOSE_ADMIN_SERVER_FLAG="--expose-admin-server"
-    else
-      EXPOSE_ADMIN_SERVER_FLAG=""
-    fi
-    kubectl exec -it admindash-0 -n dashbase -- bash -c "/data/create-lb.sh --https $EXPOSEMON $EXPOSE_ADMIN_SERVER_FLAG"
-  fi
-}
-
-demo_setup() {
-  if [ "$DEMO_FLAG" == "true" ]; then
-    ES_HOSTS="https://table-$TABLENAME:7888"
-    NAMESPACE="dashbase"
-    log_info "Setting up demo freeswitch and configure filebeat to send logs to target table $TABLENAME"
-    kubectl exec -it admindash-0 -n dashbase -- bash -c "wget -O /data/resources.tar  https://github.com/dashbase/dashbase-installation/raw/master/deployment-tools/example-applications/freeswitch/resources.tar"
-    kubectl exec -it admindash-0 -n dashbase -- bash -c "tar -xvf /data/resources.tar -C /data/"
-    kubectl exec -it admindash-0 -n dashbase -- sed -i "s|FILEBEAT_ES_HOSTS|$ES_HOSTS|" /data/resources/filebeat.yml
-    kubectl exec -it admindash-0 -n dashbase -- sed -i "s|FILEBEAT_ES_HOSTS|$ES_HOSTS|" /data/resources/filebeat-loader.yml
-    kubectl exec -it admindash-0 -n dashbase -- sed -i "s|FREESWITCH_NAMESPACE|$NAMESPACE|" /data/resources/config.yml
-    kubectl exec -it admindash-0 -n dashbase -- bash -c "kubectl apply -f /data/resources -n dashbase"
+    kubectl exec -it admindash-0 -n dashbase -- bash -c "/data/create-lb.sh --https $EXPOSEMON"
   fi
 }
 
@@ -845,7 +812,7 @@ else
     echo "LoadBalancer($SERVICE_NAME): IP is not ready."
   fi
   done
-  
+
   for SERVICE_INFO in $(kubectl get service -o=jsonpath='{range .items[*]}{.metadata.name},{.spec.type},{.status.loadBalancer.ingress[0].ip},{.status.loadBalancer.ingress[0].hostname}{"\n"}{end}' -n dashbase |grep -E 'prometheus|pushgateway'); do
   read -r SERVICE_NAME SERVICE_TYPE SERVICE_LB_IP SERVICE_LB_HOSTNAME <<<"$(echo "$SERVICE_INFO" | tr ',' ' ')"
   if [ "$SERVICE_TYPE" != "LoadBalancer" ]; then
