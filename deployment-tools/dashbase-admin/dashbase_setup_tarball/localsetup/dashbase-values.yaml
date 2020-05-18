@@ -14,16 +14,7 @@ default:
     priorityClassName: dashbase-high-priority
     storage:
       class: "dashbase-data"
-      size: "1000Gi"
-
-    containerConfig:
-      resources:
-        requests:
-          cpu: 1.2
-          memory: 2.4G
-        limits:
-          cpu: 1.2
-          memory: 2.4G
+      size: "100Gi"
     environment:
       JAVA_OPTS: "-Xmx2g -Xms2g"
       BLOOM_FILTER_SIZE: "400"
@@ -47,13 +38,6 @@ presto:
   presto:
     prestoKeystorePassword: PRESTO_KEYSTORE_PASSWORD
     dashbaseKeystorePassword: DASHBASE_KEYSTORE_PASSWORD
-    coordinatorResources:
-      requests:
-        cpu: 1
-        memory: 1G
-      limits:
-        cpu: 1
-        momory: 1G
 
 services:
   etcd:
@@ -76,14 +60,6 @@ services:
       presto-keystore-password:
         dir: /run/prestojks/
         file: presto-keystore-password
-#    containerConfig:
-#      resources:
-#        limits:
-#          cpu: 1
-#          memory: 2G
-#        requests:
-#          cpu: 500m
-#          memory: 2G
     environment:
       ENABLE_SEARCH_SCHEDULER: "true"
       ENABLE_CHRONOLOGICAL_SORT: "true"
