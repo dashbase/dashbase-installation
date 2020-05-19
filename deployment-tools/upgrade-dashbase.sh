@@ -188,9 +188,11 @@ elif [[ "$CHARTVERSION" != "undefined" ]]; then
   if [ "$FINDCHARTX" == "0" ]; then
     log_info "There is no dashbase chart version for entered chart version $CHARTVERSION"
     log_info "This upgrade will use latest stable chart version $STABLECHART"
+    # Case 5A user entered chart version but is not found in dashbase helm repo, then will use latest stable chart version
     chartver="--version $STABLECHART"
   else
     log_info "The dashbase chart version for $CHARTVERSION is found"
+    # Case 5B user entered chart version and is found on dashbase helm repo, will use entered chart version
     chartver="--version $CHARTVERSION"
   fi
 fi
