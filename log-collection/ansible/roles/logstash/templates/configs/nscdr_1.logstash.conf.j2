@@ -11,7 +11,7 @@ input {
         statement_filepath => "/etc/logstash/conf.d/nscdr_mysql_statement"
         schedule => "*/10 * * * *"
         use_column_value => true
-        tracking_column => "id"
+        tracking_column => "time_start"
 	}
 }
 
@@ -22,7 +22,7 @@ filter {
     }
   }
   date {
-    match => ["time_insert", "yyyy-MM-dd HH:mm:ss"]
+    match => ["time_start", "UNIX"]
   }
 }
 
