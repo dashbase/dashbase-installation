@@ -118,7 +118,7 @@
 
 - name: Create Netsapiens CDR cron job to update mysql statement based on current date
   cron:
-    name: "logstash restart with new mysql_statement"
+    name: "logstash restart with new Netsapiens CDR mysql_statement"
     minute: "0"
     hour: "0"
     day: "1"
