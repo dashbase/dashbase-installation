@@ -10,8 +10,8 @@ fi
 RANDOM=$(openssl rand -hex 3 > randomstring)
 RSTRING=$(cat randomstring)
 
-DASHVERSION="2.2.7"
-AWS_EKS_SCRIPT_VERSION="2.2.7"
+DASHVERSION="2.2.11"
+AWS_EKS_SCRIPT_VERSION="2.2.11"
 AWS_ACCESS_KEY="undefined"
 AWS_SECRET_ACCESS_KEY="undefined"
 REGION="us-east-2"
