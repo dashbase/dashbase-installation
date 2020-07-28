@@ -264,10 +264,17 @@ check_input() {
     log_info "Entered aws secret access key = $AWS_SECRET_ACCESS_KEY"
     log_info "Default AWS region = $REGION"
     # check dashbase version
-     if [[ "$V2_FLAG" ==  "true" ]] || [[ ${VNUM} -ge 2 ]]; then
-       log_info "dashbase V2 is selected"
+     if [[ ${VNUM} -ge 2 ]] && [[ "$INSTYPE" == "r5.xlarge" ]]; then
+       log_info "dashbase V2 is selected and no instance type provided"
        INSTYPE="c5.4xlarge"
-       if [ "$CLUSTERSIZE" == "small" ]; then NODENUM=1 ; fi
+       if [[ "$NODENUM" -lt 2 ]]; then
+         log_fatal "Entered node number must be equal or greater than two"
+       fi
+     elif [[ ${VNUM} -ge 2 ]] && [[ "$INSTYPE" != "r5.xlarge" ]]; then
+       log_info "dashbase V2 is selected and instance type is $INSTYPE"
+       if [[ "$NODENUM" -lt 2 ]]; then
+         log_fatal "Entered node number must be equal or greater than two"
+       fi
      elif [[ "$V2_FLAG" ==  "false" ]] && [[ ${VNUM} -eq 1 ]]; then
        log_info "dashbase V1 is selected"
        if [ "$CLUSTERSIZE" == "large" ]; then INSTYPE="r5.2xlarge" ; fi
