@@ -61,7 +61,7 @@ display_help() {
   echo "     --cluster_type specify the cluster type using the predefined standard"
   echo "                    e.g. --cluster_type=standard      2 * 16core/32Gi required"
   echo "                         --cluster_type=small         3 * 8core/32Gi required"
-  echo "                         --cluster_type=arbitrary     no limits"
+  echo "                         --cluster_type=local         no limits"
   echo ""
   echo "     UCASS CALL FLOW features, enable either call flow cdr or sip or netsapiens log"
   echo "     --callflow_cdr enable ucass call flow cdr log feature, e.g. --callflow_cdr"
