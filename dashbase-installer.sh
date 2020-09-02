@@ -24,8 +24,7 @@ DEMO_FLAG="false"
 WEBRTC_FLAG="false"
 SYSTEM_LOG="false"
 SYSLOG_FLAG="false"
-INDEXERCPU=7
-INDEXERMEMORY=15
+CLUSTERTYPE="large"
 
 echo "Installer script version is $INSTALLER_VERSION"
 
@@ -53,16 +52,16 @@ display_help() {
   echo "     --adminpassword specify admin password to access to admin page web portal"
   echo "                     default admin passowrd is dashbase123"
   echo "                     e.g. --adminpassword=myadminpass"
-  echo "     --indexer_cpu   specify each indexer cpu requirement, default cpu per indexer is 7"
-  echo "                     e.g. --indexer_cpu=4"
-  echo "     --indexer_memory specify the indexer memory requirement, default memory per indexer is 15"
-  echo "                     e.g. --indexer_memory=8"
   echo "     --syslog       enable dashbase syslog daemon, e.g. --syslog"
   echo "     --valuefile    specify a custom values yaml file"
   echo "                    e.g. --valuefile=/tmp/mydashbase_values.yaml"
   echo "     --presto       enable presto component e.g. --presto"
   echo "     --tablename        dashbase table name, default table name is logs"
   echo "                        e.g. --tablename=freeswitch"
+  echo "     --cluster_type specify the cluster type using the predefined standard"
+  echo "                    e.g. --cluster_type=standard      2 * 16core/32Gi required"
+  echo "                         --cluster_type=small         3 * 8core/32Gi required"
+  echo "                         --cluster_type=arbitrary     no limits"
   echo ""
   echo "     UCASS CALL FLOW features, enable either call flow cdr or sip or netsapiens log"
   echo "     --callflow_cdr enable ucass call flow cdr log feature, e.g. --callflow_cdr"
@@ -188,13 +187,9 @@ while [[ $# -gt 0 ]]; do
     fail_if_empty "$PARAM" "$VALUE"
     ADMINPASSWORD=$VALUE
     ;;
-  --indexer_cpu)
+  --cluster_type)
     fail_if_empty "$PARAM" "$VALUE"
-    INDEXERCPU=$VALUE
-    ;;
-  --indexer_memory)
-    fail_if_empty "$PARAM" "$VALUE"
-    INDEXERMEMORY=$VALUE
+    CLUSTERTYPE=$VALUE
     ;;
   --storage_account)
     fail_if_empty "$PARAM" "$VALUE"
@@ -266,6 +261,58 @@ check_platform_input() {
   fi
 }
 
+check_cluster_type_input() {
+  # check entered cluster type
+  if [ "$CLUSTERTYPE" == "large" ]; then
+    log_info "using cluster type: $PLATFORM"
+  elif [ "$CLUSTERTYPE" == "small" ]; then
+    log_info "using cluster type:  $PLATFORM"
+  elif [ "$CLUSTERTYPE" == "local" ]; then
+    log_info "using cluster type:  $PLATFORM"
+  else
+    log_fatal "Incorrect cluster type, and platform type should be either large, small or local"
+  fi
+
+  case "$CLUSTERTYPE" in
+  large)
+    INDEXERCPU=7
+    INDEXERMEMORY=15
+    INTERNAL_V1_DESIRED_NODE_NUM=2
+    INTERNAL_V1_DESIRED_NODE_CPU=6
+    INTERNAL_V1_DESIRED_NODE_CPU_M=6000
+    INTERNAL_V1_DESIRED_NODE_MEM_GI=60
+    INTERNAL_V1_DESIRED_NODE_MEM_MI=60000
+    INTERNAL_V1_DESIRED_NODE_MEM_KI=60000000
+    INTERNAL_V2_DESIRED_NODE_NUM=2
+    INTERNAL_V2_DESIRED_NODE_CPU=14
+    INTERNAL_V2_DESIRED_NODE_CPU_M=14000
+    INTERNAL_V2_DESIRED_NODE_MEM_GI=26
+    INTERNAL_V2_DESIRED_NODE_MEM_MI=26000
+    INTERNAL_V2_DESIRED_NODE_MEM_KI=26000000
+    ;;
+  small)
+    INDEXERCPU=4
+    INDEXERMEMORY=8
+    INTERNAL_V1_DESIRED_NODE_NUM=3
+    INTERNAL_V1_DESIRED_NODE_CPU=3
+    INTERNAL_V1_DESIRED_NODE_CPU_M=3000
+    INTERNAL_V1_DESIRED_NODE_MEM_GI=30
+    INTERNAL_V1_DESIRED_NODE_MEM_MI=30000
+    INTERNAL_V1_DESIRED_NODE_MEM_KI=30000000
+    INTERNAL_V2_DESIRED_NODE_NUM=3
+    INTERNAL_V2_DESIRED_NODE_CPU=14
+    INTERNAL_V2_DESIRED_NODE_CPU_M=14000
+    INTERNAL_V2_DESIRED_NODE_MEM_GI=26
+    INTERNAL_V2_DESIRED_NODE_MEM_MI=26000
+    INTERNAL_V2_DESIRED_NODE_MEM_KI=26000000
+    ;;
+  local)
+    INDEXERCPU=4
+    INDEXERMEMORY=8
+    ;;
+  esac
+}
+
 check_ingress_subdomain() {
   if [[ "$INGRESS_FLAG" == "true" && -z "$SUBDOMAIN" ]]; then
     log_fatal "--subomain is required when using --ingress flag"
@@ -325,11 +372,11 @@ check_k8s_permission() {
 check_node_cpu_v1() {
   ## check nodes resources
   if [[ "$2" =~ ^([0-9]+)m$ ]]; then
-    if [[ ${BASH_REMATCH[1]} -ge 6000 ]]; then
+    if [[ ${BASH_REMATCH[1]} -ge $INTERNAL_V1_DESIRED_NODE_CPU_M ]]; then
       return 0
     fi
   elif [[ "$2" =~ ^([0-9]+)$ ]]; then
-    if [[ ${BASH_REMATCH[1]} -ge 6 ]]; then
+    if [[ ${BASH_REMATCH[1]} -ge $INTERNAL_V1_DESIRED_NODE_CPU ]]; then
       return 0
     fi
   else
@@ -341,11 +388,11 @@ check_node_cpu_v1() {
 check_node_cpu_v2() {
   ## check nodes resources
   if [[ "$2" =~ ^([0-9]+)m$ ]]; then
-    if [[ ${BASH_REMATCH[1]} -ge 14000 ]]; then
+    if [[ ${BASH_REMATCH[1]} -ge $INTERNAL_V2_DESIRED_NODE_CPU_M ]]; then
       return 0
     fi
   elif [[ "$2" =~ ^([0-9]+)$ ]]; then
-    if [[ ${BASH_REMATCH[1]} -ge 14 ]]; then
+    if [[ ${BASH_REMATCH[1]} -ge $INTERNAL_V2_DESIRED_NODE_CPU ]]; then
       return 0
     fi
   else
@@ -356,15 +403,15 @@ check_node_cpu_v2() {
 
 check_node_memory_v1() {
   if [[ "$2" =~ ^([0-9]+)Ki?$ ]]; then
-    if [[ ${BASH_REMATCH[1]} -ge 60000000 ]]; then
+    if [[ ${BASH_REMATCH[1]} -ge $INTERNAL_V1_DESIRED_NODE_MEM_KI ]]; then
       return 0
     fi
   elif [[ "$2" =~ ^([0-9]+)Mi?$ ]]; then
-    if [[ ${BASH_REMATCH[1]} -ge 60000 ]]; then
+    if [[ ${BASH_REMATCH[1]} -ge $INTERNAL_V1_DESIRED_NODE_MEM_MI ]]; then
       return 0
     fi
   elif [[ "$2" =~ ^([0-9]+)Gi?$ ]]; then
-    if [[ ${BASH_REMATCH[1]} -ge 60 ]]; then
+    if [[ ${BASH_REMATCH[1]} -ge $INTERNAL_V1_DESIRED_NODE_MEM_GI ]]; then
       return 0
     fi
   else
@@ -375,15 +422,15 @@ check_node_memory_v1() {
 
 check_node_memory_v2() {
   if [[ "$2" =~ ^([0-9]+)Ki?$ ]]; then
-    if [[ ${BASH_REMATCH[1]} -ge 26000000 ]]; then
+    if [[ ${BASH_REMATCH[1]} -ge $INTERNAL_V2_DESIRED_NODE_MEM_KI ]]; then
       return 0
     fi
   elif [[ "$2" =~ ^([0-9]+)Mi?$ ]]; then
-    if [[ ${BASH_REMATCH[1]} -ge 26000 ]]; then
+    if [[ ${BASH_REMATCH[1]} -ge $INTERNAL_V2_DESIRED_NODE_MEM_MI ]]; then
       return 0
     fi
   elif [[ "$2" =~ ^([0-9]+)Gi?$ ]]; then
-    if [[ ${BASH_REMATCH[1]} -ge 26 ]]; then
+    if [[ ${BASH_REMATCH[1]} -ge $INTERNAL_V2_DESIRED_NODE_MEM_GI ]]; then
       return 0
     fi
   else
@@ -394,11 +441,11 @@ check_node_memory_v2() {
 
 check_node_v1() {
   if ! check_node_cpu_v1 "$1" "$2"; then
-    echo "Node($1) doesn't have enough cpu resources(6 core at least)."
+    echo "Node($1) doesn't have enough cpu resources($INTERNAL_V1_DESIRED_NODE_CPU cores at least)."
     return 0
   fi
   if ! check_node_memory_v1 "$1" "$3"; then
-    echo "Node($1) doesn't have enough memory resources(60 Gi at least)."
+    echo "Node($1) doesn't have enough memory resources($INTERNAL_V1_DESIRED_NODE_MEM_GI Gi at least)."
     return 0
   fi
 
@@ -408,11 +455,11 @@ check_node_v1() {
 
 check_node_v2() {
   if ! check_node_cpu_v2 "$1" "$2"; then
-    echo "Node($1) doesn't have enough cpu resources(16 cores at least)."
+    echo "Node($1) doesn't have enough cpu resources($INTERNAL_V2_DESIRED_NODE_CPU cores at least)."
     return 0
   fi
   if ! check_node_memory_v2 "$1" "$3"; then
-    echo "Node($1) doesn't have enough memory resources(30 Gi at least)."
+    echo "Node($1) doesn't have enough memory resources($INTERNAL_V2_DESIRED_NODE_MEM_GI Gi at least)."
     return 0
   fi
 
@@ -514,20 +561,6 @@ check_v2() {
   fi
 }
 
-check_indexer_cpu_memory() {
-  # check entered indexer cpu and memory value is integer or not
-  if [[ $INDEXERCPU ]] && [ $INDEXERCPU -eq $INDEXERCPU ] && [ $INDEXERCPU -gt 0 ]; then
-    log_info "Entered indexer cpu value $INDEXERCPU and is an integer"
-  else
-    log_fatal "Entered indexer cpu value $INDEXERCPU and is not an integer"
-  fi
-   if [[ $INDEXERMEMORY ]] && [ $INDEXERMEMORY -eq $INDEXERMEMORY ] && [ $INDEXERCPU -gt 0 ]; then
-    log_info "Entered indexer memory value $INDEXERMEMORY and is an integer"
-  else
-    log_fatal "Entered indexer memory value $INDEXERMEMORY and is not an integer"
-  fi
-}
-
 check_syslog() {
   if [ "$SYSLOG_FLAG" == "true" ]; then
     log_info "Dashbase syslog is enabled, syslog deployment set will be created for receiving syslog"
@@ -554,6 +587,10 @@ preflight_check() {
 
   echo ""
   echo "Checking kubernetes nodes capacity..."
+  if [ "$CLUSTERSIZE" == "local" ]; then
+      "Skipped kubernetes nodes capacity due to localsetup."
+      return
+  fi
 
   if [ "$V2_NODE" == "true" ]; then
     AVAIILABLE_NODES=0
@@ -564,7 +601,7 @@ preflight_check() {
       check_node_v2 "$NODE_NAME" "$NODE_CPU" "$NODE_MEMORY"
     done
     echo ""
-    if [ $AVAIILABLE_NODES -ge 2 ]; then
+    if [ $AVAIILABLE_NODES -ge $INTERNAL_V2_DESIRED_NODE_NUM ]; then
       log_info "This cluster is ready for dashbase installation on resources"
     else
       log_warning "This cluster doesn't have enough resources for dashbase installation(2 nodes with each have 16 cores and 32 Gi memory at least)."
@@ -578,14 +615,12 @@ preflight_check() {
       check_node_v1 "$NODE_NAME" "$NODE_CPU" "$NODE_MEMORY"
     done
     echo ""
-    if [ $AVAIILABLE_NODES -ge 2 ]; then
+    if [ $AVAIILABLE_NODES -ge $INTERNAL_V1_DESIRED_NODE_NUM ]; then
       log_info "This cluster is ready for dashbase installation on resources"
     else
       log_warning "This cluster doesn't have enough resources for dashbase installation(2 nodes with each have 8 cores and 64 Gi memory at least)."
     fi
   fi
-
-  check_indexer_cpu_memory
 }
 
 adminpod_setup() {
@@ -695,10 +730,10 @@ download_dashbase() {
   echo "VNUM is $VNUM"
   if [[ "$V2_FLAG" ==  "true" ]] || [[ "$VNUM" -ge 2 ]]; then
     log_info "Download dashbase-values-v2.yaml file for v2 setup"
-    kubectl exec -it admindash-0 -n dashbase -- bash -c "wget -O /data/dashbase-values.yaml https://github.com/dashbase/dashbase-installation/raw/master/deployment-tools/dashbase-admin/dashbase_setup_tarball/largesetup/dashbase-values-v2.yaml"
+    kubectl exec -it admindash-0 -n dashbase -- bash -c "wget -O /data/dashbase-values.yaml https://github.com/dashbase/dashbase-installation/raw/master/deployment-tools/dashbase-admin/dashbase_setup_tarball/${CLUSTERSIZE}setup/dashbase-values-v2.yaml"
   else
     log_info "Download dashbase-values.yaml file for v1 setup"
-    kubectl exec -it admindash-0 -n dashbase -- bash -c "wget -O /data/dashbase-values.yaml https://github.com/dashbase/dashbase-installation/raw/master/deployment-tools/dashbase-admin/dashbase_setup_tarball/largesetup/dashbase-values.yaml"
+    kubectl exec -it admindash-0 -n dashbase -- bash -c "wget -O /data/dashbase-values.yaml https://github.com/dashbase/dashbase-installation/raw/master/deployment-tools/dashbase-admin/dashbase_setup_tarball/${CLUSTERSIZE}setup/dashbase-values.yaml"
   fi
 
   kubectl exec -it admindash-0 -n dashbase -- bash -c "chmod a+x /data/*.sh"
@@ -986,6 +1021,7 @@ demo_setup() {
 
 {
 check_platform_input
+check_cluster_type_input
 check_ingress_subdomain
 check_basic_auth
 check_version
