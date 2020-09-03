@@ -277,11 +277,11 @@ check_platform_input() {
 check_cluster_type_input() {
   # check entered cluster type
   if [ "$CLUSTERTYPE" == "large" ]; then
-    log_info "using cluster type: $PLATFORM"
+    log_info "using cluster type: $CLUSTERTYPE"
   elif [ "$CLUSTERTYPE" == "small" ]; then
-    log_info "using cluster type:  $PLATFORM"
+    log_info "using cluster type:  $CLUSTERTYPE"
   elif [ "$CLUSTERTYPE" == "local" ]; then
-    log_info "using cluster type:  $PLATFORM"
+    log_info "using cluster type:  $CLUSTERTYPE"
   else
     log_fatal "Incorrect cluster type, and platform type should be either large, small or local"
   fi
