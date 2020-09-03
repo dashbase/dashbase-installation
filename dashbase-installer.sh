@@ -28,6 +28,7 @@ WEBRTC_FLAG="false"
 SYSTEM_LOG="false"
 SYSLOG_FLAG="false"
 CLUSTERTYPE="large"
+MIRROR_FLAG="false"
 
 echo "Installer script version is $INSTALLER_VERSION"
 
@@ -65,6 +66,7 @@ display_help() {
   echo "                    e.g. --cluster_type=large         2 * 16core/32Gi required"
   echo "                         --cluster_type=small         3 * 8core/32Gi required"
   echo "                         --cluster_type=local         no limits"
+  echo "     --mirror       use mirror to download images. (Currently, it's only for ingress controller)"
   echo ""
   echo "     UCASS CALL FLOW features, enable either call flow cdr or sip or netsapiens log"
   echo "     --callflow_cdr enable ucass call flow cdr log feature, e.g. --callflow_cdr"
@@ -231,6 +233,9 @@ while [[ $# -gt 0 ]]; do
     ;;
   --syslog)
     SYSLOG_FLAG="true"
+    ;;
+  --mirror)
+    MIRROR_FLAG="true"
     ;;
   *)
     log_fatal "Unknown parameter ($PARAM) with ${VALUE:-no value}"
@@ -965,7 +970,11 @@ install_dashbase() {
 expose_endpoints() {
   if [ "$INGRESS_FLAG" == "true" ]; then
     log_info "setup ngnix ingress controller to expose service "
-    kubectl exec -it admindash-0 -n dashbase -- bash -c "helm install nginx-ingress stable/nginx-ingress --namespace dashbase"
+    if [ "$MIRROR_FLAG" == "true" ]; then
+      kubectl exec -it admindash-0 -n dashbase -- bash -c "helm install nginx-ingress stable/nginx-ingress --namespace dashbase --version 1.41.3 --set controller.image.registry=registry.cn-hongkong.aliyuncs.com --set controller.image.repository=dashbase/nginx-ingress-controller --set defaultBackend.image.repository=registry.cn-hongkong.aliyuncs.com/dashbase/defaultbackend-amd64"
+    else
+      kubectl exec -it admindash-0 -n dashbase -- bash -c "helm install nginx-ingress stable/nginx-ingress --namespace dashbase --version 1.41.3"
+    fi
     kubectl exec -it admindash-0 -n dashbase -- bash -c "kubectl get po -n dashbase |grep ingress"
     # get the exposed IP address from nginx ingress controller
     EXTERNAL_IP=$(kubectl exec -it admindash-0 -n dashbase -- kubectl get svc nginx-ingress-controller -n dashbase | tail -n +2 | awk '{ print $4}')
