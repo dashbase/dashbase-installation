@@ -313,8 +313,8 @@ check_cluster_type_input() {
     INTERNAL_V1_DESIRED_NODE_MEM_MI=30000
     INTERNAL_V1_DESIRED_NODE_MEM_KI=30000000
     INTERNAL_V2_DESIRED_NODE_NUM=3
-    INTERNAL_V2_DESIRED_NODE_CPU=14
-    INTERNAL_V2_DESIRED_NODE_CPU_M=14000
+    INTERNAL_V2_DESIRED_NODE_CPU=7
+    INTERNAL_V2_DESIRED_NODE_CPU_M=7000
     INTERNAL_V2_DESIRED_NODE_MEM_GI=26
     INTERNAL_V2_DESIRED_NODE_MEM_MI=26000
     INTERNAL_V2_DESIRED_NODE_MEM_KI=26000000
@@ -617,7 +617,7 @@ preflight_check() {
     if [ $AVAIILABLE_NODES -ge $INTERNAL_V2_DESIRED_NODE_NUM ]; then
       log_info "This cluster is ready for dashbase installation on resources"
     else
-      log_warning "This cluster doesn't have enough resources for dashbase installation(2 nodes with each have 16 cores and 32 Gi memory at least)."
+      log_warning "This cluster doesn't have enough resources for dashbase installation($INTERNAL_V2_DESIRED_NODE_NUM nodes with each have $INTERNAL_V2_DESIRED_NODE_CPU cores and $INTERNAL_V2_DESIRED_NODE_MEM_GI Gi memory at least)."
     fi
   else
     AVAIILABLE_NODES=0
@@ -631,7 +631,7 @@ preflight_check() {
     if [ $AVAIILABLE_NODES -ge $INTERNAL_V1_DESIRED_NODE_NUM ]; then
       log_info "This cluster is ready for dashbase installation on resources"
     else
-      log_warning "This cluster doesn't have enough resources for dashbase installation(2 nodes with each have 8 cores and 64 Gi memory at least)."
+      log_warning "This cluster doesn't have enough resources for dashbase installation($INTERNAL_V1_DESIRED_NODE_NUM nodes with each have $INTERNAL_V1_DESIRED_NODE_CPU cores and $INTERNAL_V1_DESIRED_NODE_MEM_GI Gi memory at least)."
     fi
   fi
 }
