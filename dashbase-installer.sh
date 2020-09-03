@@ -657,8 +657,8 @@ adminpod_setup() {
     log_fatal "Previous admin pod admindash exists"
   else
     kubectl apply -f "$BASEDIR"/deployment-tools/config/admindash-server-sts_helm3.yaml -n dashbase
-    log_info "setting up admin pod, please wait for three minutes"
-    kubectl wait --for=condition=Ready pods/admindash-0 --timeout=180s -n dashbase
+    log_info "setting up admin pod, please wait for 10 minutes at most"
+    kubectl wait --for=condition=Ready pods/admindash-0 --timeout=600s -n dashbase
     # Check to ensure admin pod is available else exit 1
     APODSTATUS=$(kubectl wait --for=condition=Ready pods/admindash-0 -n dashbase | grep -c "condition met")
     if [ "$APODSTATUS" -eq "1" ]; then echo "Admin Pod is available"; else log_fatal "Admin Pod  admindash-0 is not available"; fi
