@@ -62,7 +62,7 @@ display_help() {
   echo "     --tablename        dashbase table name, default table name is logs"
   echo "                        e.g. --tablename=freeswitch"
   echo "     --cluster_type specify the cluster type using the predefined standard"
-  echo "                    e.g. --cluster_type=standard      2 * 16core/32Gi required"
+  echo "                    e.g. --cluster_type=large         2 * 16core/32Gi required"
   echo "                         --cluster_type=small         3 * 8core/32Gi required"
   echo "                         --cluster_type=local         no limits"
   echo ""
