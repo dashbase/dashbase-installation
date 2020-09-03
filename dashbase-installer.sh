@@ -1,5 +1,7 @@
 #!/bin/bash
 
+BASEDIR=$(dirname "$0")
+
 DASHVERSION="2.3.1"
 INSTALLER_VERSION="2.3.1"
 PLATFORM="undefined"
@@ -15,6 +17,7 @@ ADMINPASSWORD="dashbase123"
 BUCKETNAME="undefined"
 STORAGE_ACCOUNT="undefined"
 STORAGE_KEY="undefined"
+STORAGE_ENDPOINT="undefined"
 PRESTO_FLAG="false"
 TABLENAME="logs"
 CALL_FLOW_CDR_FLAG="false"
@@ -32,7 +35,7 @@ display_help() {
   echo "Usage: $0 [options...]"
   echo ""
   echo "   all options usage e.g. --option_key=value  or --option_key"
-  echo "     --platform     aws/azure/gce  e.g. --platform=aws"
+  echo "     --platform     aws/azure/gce/aliyun  e.g. --platform=aws"
   echo "     --version      dashbase version e.g. --version=1.3.2"
   echo "     --ingress      exposed dashbase services using ingress controller  e.g. --ingress"
   echo "     --subdomain    use together with ingress option e.g.  --subdomain=test.dashbase.io"
@@ -82,6 +85,8 @@ display_help() {
   echo "                        e.g. --storage_account=MYSTORAGEACCOUNTSTRING"
   echo "     --storage_key      cloud object storage key, in AWS is the ACCESS SECRET"
   echo "                        e.g. --storage_key=MYSTORAGEACCOUNTACCESSKEY"
+  echo "     --storage_endpoint cloud object endpoint url. (currently only available in aliyun platform)"
+  echo "                        e.g. --storage_endpoint=https://oss-cn-hangzhou.aliyuncs.com"
   echo ""
   echo "   Command example in V1"
   echo "   ./dashbase-installer.sh --platform=aws --ingress --subdomain=test.dashbase.io"
@@ -199,6 +204,10 @@ while [[ $# -gt 0 ]]; do
     fail_if_empty "$PARAM" "$VALUE"
     STORAGE_KEY=$VALUE
     ;;
+  --storage_endpoint)
+    fail_if_empty "$PARAM" "$VALUE"
+    STORAGE_ENDPOINT=$VALUE
+    ;;
   --basic_auth)
     BASIC_AUTH="true"
     ;;
@@ -249,17 +258,19 @@ check_platform_input() {
   if [[ "$PLATFORM" == "undefined" || -z "$PLATFORM" ]]; then
     log_fatal "--platform is required"
   elif [ "$PLATFORM" == "aws" ]; then
-    log_info "entered plaform type is $PLATFORM"
+    log_info "entered platform type is $PLATFORM"
   elif [ "$PLATFORM" == "azure" ]; then
-    log_info "entered plaform type is $PLATFORM"
+    log_info "entered platform type is $PLATFORM"
   elif [ "$PLATFORM" == "gce" ]; then
-    log_info "entered plaform type is $PLATFORM"
+    log_info "entered platform type is $PLATFORM"
+  elif [ "$PLATFORM" == "aliyun" ]; then
+    log_info "entered platform type is $PLATFORM"
   elif [ "$PLATFORM" == "docker" ]; then
-    log_info "entered plaform type is $PLATFORM"
+    log_info "entered platform type is $PLATFORM"
   elif [ "$PLATFORM" == "minikube" ]; then
     log_info "entered platform type is $PLATFORM"
   else
-    log_fatal "Incorrect platform type, and platform type should be either aws, gce, azure, docker or minikube"
+    log_fatal "Incorrect platform type, and platform type should be either aws, gce, azure, aliyun, docker or minikube"
   fi
 }
 
@@ -551,7 +562,7 @@ check_v2() {
        log_info "V2 is selected and bucket name is $BUCKETNAME"
        V2_NODE="true"
     fi
-    if [ "$PLATFORM" == "gce" ] || [ "$PLATFORM" == "azure" ]; then
+    if [ "$PLATFORM" == "gce" ] || [ "$PLATFORM" == "azure" ] || [ "$PLATFORM" == "aliyun" ]; then
        log_info "V2 is selected and cloud platform is $PLATFORM"
        if [ "$STORAGE_ACCOUNT" == "undefined" ] || [ "$STORAGE_KEY" == "undefined" ]; then
           log_fatal "V2 setup on $PLATFORM requires inputs for --storage_account and --storage_key"
@@ -572,7 +583,7 @@ check_syslog() {
 preflight_check() {
   # preflight checks
   log_info "OS type running this script is $OSTYPE"
-  CMDS="kubectl curl"
+  CMDS="kubectl tar bash"
   for x in $CMDS; do
     command -v "$x" >/dev/null && continue || {
       log_fatal "This script requires $x command and is not found."
@@ -645,9 +656,7 @@ adminpod_setup() {
   if [ "$(kubectl get po -n dashbase | grep -c admindash)" -gt 0 ]; then
     log_fatal "Previous admin pod admindash exists"
   else
-    # Download and install installer helper statefulset yaml file
-    curl -k https://raw.githubusercontent.com/dashbase/dashbase-installation/master/deployment-tools/config/admindash-server-sts_helm3.yaml -o admindash-server-sts_helm3.yaml
-    kubectl apply -f admindash-server-sts_helm3.yaml -n dashbase
+    kubectl apply -f "$BASEDIR"/deployment-tools/config/admindash-server-sts_helm3.yaml -n dashbase
     log_info "setting up admin pod, please wait for three minutes"
     kubectl wait --for=condition=Ready pods/admindash-0 --timeout=180s -n dashbase
     # Check to ensure admin pod is available else exit 1
@@ -656,6 +665,7 @@ adminpod_setup() {
   fi
 }
 
+# deprecated
 setup_helm_tiller() {
   # create tiller service account in kube-system namespace
   kubectl exec -it admindash-0 -n dashbase -- bash -c "wget -O /data/rbac-config.yaml https://raw.githubusercontent.com/dashbase/dashbase-installation/master/deployment-tools/config/rbac-config.yaml"
@@ -698,17 +708,18 @@ install_etcd_operator() {
 
 download_dashbase() {
   # download and update the dashbase helm value yaml files
-  log_info "Downloading dashbase setup tar file from Github"
-  kubectl exec -it admindash-0 -n dashbase -- bash -c "wget -O /data/dashbase_setup_nolicy.tar  https://github.com/dashbase/dashbase-installation/raw/master/deployment-tools/dashbase-admin/dashbase_setup_tarball/dashbase_setup_nolicy.tar"
+  log_info "Copying dashbase setup tar file"
+  bash "$BASEDIR"/deployment-tools/dashbase-admin/package.sh
+  kubectl cp -n dashbase deployment-tools/dashbase-admin/dashbase_setup_tarball/dashbase_setup_nolicy.tar admindash-0:/data/dashbase_setup_nolicy.tar
   kubectl exec -it admindash-0 -n dashbase -- bash -c "tar -xvf /data/dashbase_setup_nolicy.tar -C /data/"
   # get the custom values yaml file
   echo "VNUM is $VNUM"
-  if [[ "$V2_FLAG" ==  "true" ]] || [[ "$VNUM" -ge 2 ]]; then
-    log_info "Download dashbase-values-v2.yaml file for v2 setup"
-    kubectl exec -it admindash-0 -n dashbase -- bash -c "wget -O /data/dashbase-values.yaml https://github.com/dashbase/dashbase-installation/raw/master/deployment-tools/dashbase-admin/dashbase_setup_tarball/${CLUSTERTYPE}setup/dashbase-values-v2.yaml"
+  if [[ "$V2_FLAG" == "true" ]] || [[ "$VNUM" -ge 2 ]]; then
+    log_info "Copy dashbase-values-v2.yaml file for v2 setup"
+    kubectl cp -n dashbase "$BASEDIR"/deployment-tools/dashbase-admin/dashbase_setup_tarball/${CLUSTERTYPE}setup/dashbase-values-v2.yaml admindash-0:/data/dashbase-values.yaml
   else
-    log_info "Download dashbase-values.yaml file for v1 setup"
-    kubectl exec -it admindash-0 -n dashbase -- bash -c "wget -O /data/dashbase-values.yaml https://github.com/dashbase/dashbase-installation/raw/master/deployment-tools/dashbase-admin/dashbase_setup_tarball/${CLUSTERTYPE}setup/dashbase-values.yaml"
+    log_info "Copy dashbase-values.yaml file for v1 setup"
+    kubectl cp -n dashbase "$BASEDIR"/deployment-tools/dashbase-admin/dashbase_setup_tarball/${CLUSTERTYPE}setup/dashbase-values.yaml admindash-0:/data/dashbase-values.yaml
   fi
 
   kubectl exec -it admindash-0 -n dashbase -- bash -c "chmod a+x /data/*.sh"
@@ -733,6 +744,9 @@ update_dashbase_valuefile() {
   elif [ "$PLATFORM" == "azure" ]; then
     log_info "update platform type azure in dashbase-values.yaml"
     kubectl exec -it admindash-0 -n dashbase -- sed -i 's/aws/azure/' /data/dashbase-values.yaml
+  elif [ "$PLATFORM" == "aliyun" ]; then
+    log_info "update platform type aliyun in dashbase-values.yaml"
+    kubectl exec -it admindash-0 -n dashbase -- sed -i 's/aws/aliyun/' /data/dashbase-values.yaml
   fi
   # update dashbase version
   if [ -z "$VERSION" ]; then
@@ -840,6 +854,12 @@ update_dashbase_valuefile() {
     if [ "$PLATFORM" == "gce" ]; then
       log_info "update dashbase-values.yaml file with google bucket mount options"
       kubectl exec -it admindash-0 -n dashbase -- sed -i '/^\ \ bucket\:/ r /data/gce_mount_options' /data/dashbase-values.yaml
+    elif [ "$PLATFORM" == "aliyun" ]; then
+      log_info "update dashbase-values.yaml file with aliyun bucket mount options"
+      kubectl exec -it admindash-0 -n dashbase -- sed -i '/^\ \ bucket\:/ r /data/aliyun_mount_options' /data/dashbase-values.yaml
+      if [ "$STORAGE_ENDPOINT" != "undefined" ]; then
+        kubectl exec -it admindash-0 -n dashbase -- sed -i "s|https://oss-accelerate.aliyuncs.com|$STORAGE_ENDPOINT|" /data/dashbase-values.yaml
+      fi
     fi
   fi
   # update keystore passwords for both dashbase and presto
@@ -982,7 +1002,7 @@ demo_setup() {
     ES_HOSTS="https://table-$TABLENAME:7888"
     NAMESPACE="dashbase"
     log_info "Setting up demo freeswitch and configure filebeat to send logs to target table $TABLENAME"
-    kubectl exec -it admindash-0 -n dashbase -- bash -c "wget -O /data/resources.tar  https://github.com/dashbase/dashbase-installation/raw/master/deployment-tools/example-applications/freeswitch/resources.tar"
+    kubectl cp -n dashbase "$BASEDIR"/deployment-tools/example-applications/freeswitch/resources.tar admindash-0:/data/resources.tar
     kubectl exec -it admindash-0 -n dashbase -- bash -c "tar -xvf /data/resources.tar -C /data/"
     kubectl exec -it admindash-0 -n dashbase -- sed -i "s|FILEBEAT_ES_HOSTS|$ES_HOSTS|" /data/resources/filebeat.yml
     kubectl exec -it admindash-0 -n dashbase -- sed -i "s|FILEBEAT_ES_HOSTS|$ES_HOSTS|" /data/resources/filebeat-loader.yml
