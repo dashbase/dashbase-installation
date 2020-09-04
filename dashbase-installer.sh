@@ -957,7 +957,12 @@ install_dashbase() {
   echo ""
   echo "please wait a few minutes for all dashbase resources be ready"
   echo ""
-  sleep 120 &
+  # wait 5 minutes by default if mirror flag is enable cuz not all images are mirrored.
+  if [ "$MIRROR_FLAG" == "true" ]; then
+    sleep 300 &
+  else
+    sleep 120 &
+  fi
   show_spinner "$!"
   # check dashbase deployed resources success or not
   kubectl exec -it admindash-0 -n dashbase -- bash -c "/data/check-dashbase-deploy.sh > >(tee check-dashbase-deploy-output.txt) 2>&1"
