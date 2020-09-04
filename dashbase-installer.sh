@@ -957,9 +957,9 @@ install_dashbase() {
   echo ""
   echo "please wait a few minutes for all dashbase resources be ready"
   echo ""
-  # wait 5 minutes by default if mirror flag is enable cuz not all images are mirrored.
+  # wait 10 minutes by default if mirror flag is enable cuz not all images are mirrored.
   if [ "$MIRROR_FLAG" == "true" ]; then
-    sleep 300 &
+    sleep 600 &
   else
     sleep 120 &
   fi
@@ -972,36 +972,30 @@ install_dashbase() {
 }
 
 # Expose endpoints via Ingress or LoadBalancer
-expose_endpoints() {
-  if [ "$INGRESS_FLAG" == "true" ]; then
-    log_info "setup ngnix ingress controller to expose service "
-    if [ "$MIRROR_FLAG" == "true" ]; then
-      kubectl exec -it admindash-0 -n dashbase -- bash -c "helm install nginx-ingress stable/nginx-ingress --namespace dashbase --version 1.41.3 --set controller.image.registry=registry.cn-hongkong.aliyuncs.com --set controller.image.repository=dashbase/nginx-ingress-controller --set defaultBackend.image.repository=registry.cn-hongkong.aliyuncs.com/dashbase/defaultbackend-amd64"
-    else
-      kubectl exec -it admindash-0 -n dashbase -- bash -c "helm install nginx-ingress stable/nginx-ingress --namespace dashbase --version 1.41.3"
-    fi
-    kubectl exec -it admindash-0 -n dashbase -- bash -c "kubectl get po -n dashbase |grep ingress"
-    # get the exposed IP address from nginx ingress controller
-    EXTERNAL_IP=$(kubectl exec -it admindash-0 -n dashbase -- kubectl get svc nginx-ingress-controller -n dashbase | tail -n +2 | awk '{ print $4}')
-    log_info "the exposed IP address for web and tables endpoint is $EXTERNAL_IP"
-    # Add basic auth ingress
-    if [ "$BASIC_AUTH" == "true" ]; then
-      log_info "Creating ingress for web with basic auth"
-      create_basic_auth_secret
-      # update ingress-web.yaml with subdomain name
-      kubectl exec -it admindash-0 -n dashbase -- bash -c "sed -i 's|test.dashbase.io|$SUBDOMAIN|' /data/ingress-web.yaml"
-      # apply the ingress-web.yaml into K8s cluster
-      kubectl exec -it admindash-0 -n dashbase -- bash -c "kubectl apply -f /data/ingress-web.yaml -n dashbase"
-    fi
-    log_info "Creating ingress for admindash server with basic auth"
-    create_admin_auth_secret
-    kubectl exec -it admindash-0 -n dashbase -- bash -c "sed -i 's|test.dashbase.io|$SUBDOMAIN|' /data/admindash-server-ingress.yaml"
-    kubectl exec -it admindash-0 -n dashbase -- bash -c "kubectl apply -f /data/admindash-server-ingress.yaml -n dashbase"
+expose_ingress_endpoints() {
+  log_info "setup ngnix ingress controller to expose service "
+  if [ "$MIRROR_FLAG" == "true" ]; then
+    kubectl exec -it admindash-0 -n dashbase -- bash -c "helm install nginx-ingress stable/nginx-ingress --namespace dashbase --version 1.41.3 --set controller.image.registry=registry.cn-hongkong.aliyuncs.com --set controller.image.repository=dashbase/nginx-ingress-controller --set defaultBackend.image.repository=registry.cn-hongkong.aliyuncs.com/dashbase/defaultbackend-amd64"
   else
-    log_info "setup LoadBalancer with https endpoints to expose services"
-    #EXPOSE_ADMIN_SERVER_FLAG="--expose-admin-server"
-    kubectl exec -it admindash-0 -n dashbase -- bash -c "/data/create-lb.sh --https $EXPOSEMON"
+    kubectl exec -it admindash-0 -n dashbase -- bash -c "helm install nginx-ingress stable/nginx-ingress --namespace dashbase --version 1.41.3"
   fi
+  kubectl exec -it admindash-0 -n dashbase -- bash -c "kubectl get po -n dashbase |grep ingress"
+  # get the exposed IP address from nginx ingress controller
+  EXTERNAL_IP=$(kubectl exec -it admindash-0 -n dashbase -- kubectl get svc nginx-ingress-controller -n dashbase | tail -n +2 | awk '{ print $4}')
+  log_info "the exposed IP address for web and tables endpoint is $EXTERNAL_IP"
+  # Add basic auth ingress
+  if [ "$BASIC_AUTH" == "true" ]; then
+    log_info "Creating ingress for web with basic auth"
+    create_basic_auth_secret
+    # update ingress-web.yaml with subdomain name
+    kubectl exec -it admindash-0 -n dashbase -- bash -c "sed -i 's|test.dashbase.io|$SUBDOMAIN|' /data/ingress-web.yaml"
+    # apply the ingress-web.yaml into K8s cluster
+    kubectl exec -it admindash-0 -n dashbase -- bash -c "kubectl apply -f /data/ingress-web.yaml -n dashbase"
+  fi
+  log_info "Creating ingress for admindash server with basic auth"
+  create_admin_auth_secret
+  kubectl exec -it admindash-0 -n dashbase -- bash -c "sed -i 's|test.dashbase.io|$SUBDOMAIN|' /data/admindash-server-ingress.yaml"
+  kubectl exec -it admindash-0 -n dashbase -- bash -c "kubectl apply -f /data/admindash-server-ingress.yaml -n dashbase"
 }
 
 expose_syslog() {
@@ -1058,6 +1052,11 @@ check_helm
 create_sslcert
 install_etcd_operator
 
+# expose ingress resource before installing dashbase.
+if [ "$INGRESS_FLAG" == "true" ]; then
+  expose_ingress_endpoints
+fi
+
 # setup dashbase value yaml file and install dashbase
 if [ "$VALUEFILE" == "dashbase-values.yaml" ]; then
   log_info "dashbase value yaml file is using default $VALUEFILE"
@@ -1069,8 +1068,13 @@ else
   install_dashbase
 fi
 
+if [ "$INGRESS_FLAG" != "true" ]; then
+  log_info "setup LoadBalancer with https endpoints to expose services"
+  #EXPOSE_ADMIN_SERVER_FLAG="--expose-admin-server"
+  kubectl exec -it admindash-0 -n dashbase -- bash -c "/data/create-lb.sh --https $EXPOSEMON"
+fi
+
 # expose services
-expose_endpoints
 expose_syslog
 
 # demo setup
