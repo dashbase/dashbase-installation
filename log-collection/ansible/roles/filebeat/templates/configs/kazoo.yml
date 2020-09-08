@@ -4,6 +4,8 @@
   exclude_files: ['\.gz$']
   fields:
     app: kamailio
+    capture.src.ip: {{ kazoo.kamailio.ip | default(hostvars[inventory_hostname]['ansible_default_ipv4']['address']) }}
+    capture.src.port: {{ kazoo.kamailio.port | default(5060) }}
     _message_parser:
       type: grok
       pattern: |-
@@ -24,6 +26,8 @@
   exclude_files: ['\.gz$']
   fields:
     app: kazoo
+    capture.src.ip: {{ kazoo.kazoo.ip | default(hostvars[inventory_hostname]['ansible_default_ipv4']['address']) }}
+    capture.src.port: {{ kazoo.kazoo.port | default(5060) }}
     _message_parser:
       type: grok
       pattern: |-
