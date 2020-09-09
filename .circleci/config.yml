@@ -25,7 +25,8 @@ jobs:
           command: |
             ansible-playbook --connection=local -i tests/localhost.inventory deploy.yml -e "dashbase_url=https://localhost:8080 configs=`ls -1 roles/filebeat/templates/configs/*.yml | xargs basename -s .yml | paste -sd ',' -`"
             for entry in `ls roles/filebeat/templates/configs/*.yml`; do
-                diff $entry tests/filebeat/configs/`basename $entry`
+              echo "Checking `basename $entry`"
+              diff $entry tests/filebeat/configs/`basename $entry`
             done
 
 workflows:
