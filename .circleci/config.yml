@@ -23,7 +23,8 @@ jobs:
           name: test ansible filebeat deployment
           working_directory: log-collection/ansible
           command: |
-            ansible-playbook --connection=local -i tests/localhost.inventory deploy.yml -e "dashbase_url=https://localhost:8080 configs=`ls -1 roles/filebeat/templates/configs/*.yml | xargs basename -s .yml | paste -sd ',' -`"
+            cp tests/localhost.inventory inventory
+            ansible-playbook --connection=local -i inventory deploy.yml -e "dashbase_url=https://localhost:8080 configs=`ls -1 roles/filebeat/templates/configs/*.yml | xargs basename -s .yml | paste -sd ',' -`"
 
 
 workflows:
