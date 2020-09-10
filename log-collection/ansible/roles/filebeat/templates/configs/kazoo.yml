@@ -27,7 +27,7 @@
   fields:
     app: kazoo
     capture.src.ip: {{ kazoo_host_ip | default(hostvars[inventory_hostname]['ansible_default_ipv4']['address']) }}
-    capture.src.port: 'kazoo'
+    capture.src.port: '0'
     _message_parser:
       type: grok
       pattern: |-
