@@ -22,5 +22,5 @@
     name: "Dashbase FreeSWITCH CDR Rotate Script"
     minute: "*/10"
     job: |-
-      /opt/scripts/freeswitch_cdr_rotate.py -v -p *.cdr.json -d {{ freeswitch_cdr_dir | default("/var/log/freeswitch/json_cdr")}} -r 3600 >> /var/log/dashbase_freeswitch_cdr_rotate.log 2>&1
+      /opt/scripts/freeswitch_cdr_rotate.py -v -p '*.cdr.json' -d {{ freeswitch_cdr_dir | default("/var/log/freeswitch/json_cdr")}} -r 3600 >> /var/log/dashbase_freeswitch_cdr_rotate.log 2>&1
 
