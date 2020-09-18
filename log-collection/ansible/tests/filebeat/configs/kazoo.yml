@@ -6,7 +6,7 @@
     app: kamailio
     dashbase.voip.app: kamailio
     dashbase.voip.type: application_log
-    capture.src.ip: {{ kazoo_host_ip | default(hostvars[inventory_hostname]['ansible_default_ipv4']['address']) }}
+    capture.src.ip: kazoo
     capture.src.port: '0'
     _message_parser:
       type: grok
@@ -30,7 +30,7 @@
     app: kazoo
     dashbase.voip.app: kazoo
     dashbase.voip.type: application_log
-    capture.src.ip: {{ kazoo_host_ip | default(hostvars[inventory_hostname]['ansible_default_ipv4']['address']) }}
+    capture.src.ip: kazoo
     capture.src.port: '0'
     _message_parser:
       type: grok
@@ -55,7 +55,7 @@
     app: freeswitch
     dashbase.voip.app: freeswitch
     dashbase.voip.type: application_log
-    capture.src.ip: {{ kazoo_host_ip | default(hostvars[inventory_hostname]['ansible_default_ipv4']['address']) }}
+    capture.src.ip: kazoo
     capture.src.port: '11000'
     _message_parser:
       type: multi
