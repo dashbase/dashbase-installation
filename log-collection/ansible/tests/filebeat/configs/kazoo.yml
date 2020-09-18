@@ -6,12 +6,12 @@
     app: kamailio
     dashbase.voip.app: kamailio
     dashbase.voip.type: application_log
-    capture.src.ip: kazoo
+    capture.src.ip: {{ kazoo_host_ip | default(hostvars[inventory_hostname]['ansible_default_ipv4']['address']) }}
     capture.src.port: '0'
     _message_parser:
       type: grok
       pattern: |-
-        %{TIMESTAMP_ISO8601:timestamp:datetime:yyyy-MM-dd'T'HH:mm:ss.SSSSSS}%{ISO8601_TIMEZONE} %{NOTSPACE:app-group:meta} %{WORD:application:meta}\[%{NUMBER:pid}\]: %{WORD:level:meta}: (?:<%{WORD:agent:meta}>: %{NOTSPACE:call-id:meta}\|%{WORD:phase:meta}\||%{WORD:module:meta} \[%{NOTSPACE:code-source:meta}:%{NUMBER:line}\]:)%{GREEDYDATA:message}
+        %{TIMESTAMP_ISO8601:timestamp:datetime:yyyy-MM-dd'T'HH:mm:ss.SSSSSS}%{ISO8601_TIMEZONE} %{NOTSPACE:app-group:meta} %{WORD:application:meta}\[%{NUMBER:pid}\]: %{WORD:level:meta}: (?:<%{WORD:agent:meta}>: %{NOTSPACE:call-id:meta}\|%{WORD:phase:meta}\||<?%{WORD:module:meta}>? \[%{NOTSPACE:code-source:meta}:%{NUMBER:line}\]:)%{GREEDYDATA:message}
 
   multiline.pattern: ^\d{4}-\d{2}-\d{2}
   multiline.negate: true
@@ -30,12 +30,12 @@
     app: kazoo
     dashbase.voip.app: kazoo
     dashbase.voip.type: application_log
-    capture.src.ip: kazoo
+    capture.src.ip: {{ kazoo_host_ip | default(hostvars[inventory_hostname]['ansible_default_ipv4']['address']) }}
     capture.src.port: '0'
     _message_parser:
       type: grok
       pattern: |-
-        %{TIMESTAMP_ISO8601:timestamp:datetime:yyyy-MM-dd'T'HH:mm:ss.SSSSSS}%{ISO8601_TIMEZONE} %{NOTSPACE:app-group:meta} %{WORD:application:meta}\[%{NUMBER:pid}\]: \|%{NOTSPACE:call-id:meta}\|%{WORD:erlang-source:meta}:%{WORD:line} ?\(<%{NOTSPACE:erlang-pid}>\) %{GREEDYDATA:message}
+        %{TIMESTAMP_ISO8601:timestamp:datetime:yyyy-MM-dd'T'HH:mm:ss.SSSSSS}%{ISO8601_TIMEZONE} %{NOTSPACE:app-group:meta} %{WORD:application:meta}\[%{NUMBER:pid}\]: \|%{NOTSPACE:call-id:meta}\|%{WORD:erlang-source:meta}:%{WORD:line} ?(?:\(emulator\) Error in process |)\(?<%{NOTSPACE:erlang-pid}>\)? %{GREEDYDATA:message}
 
   multiline.pattern: ^\d{4}-\d{2}-\d{2}
   multiline.negate: true
@@ -55,7 +55,7 @@
     app: freeswitch
     dashbase.voip.app: freeswitch
     dashbase.voip.type: application_log
-    capture.src.ip: kazoo
+    capture.src.ip: {{ kazoo_host_ip | default(hostvars[inventory_hostname]['ansible_default_ipv4']['address']) }}
     capture.src.port: '11000'
     _message_parser:
       type: multi
