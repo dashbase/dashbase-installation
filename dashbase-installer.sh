@@ -816,10 +816,9 @@ update_dashbase_valuefile() {
   # update ucaas callflow options cdr, sip or netsapiens log type
   if [ "$CALL_FLOW_SIP_FLAG" == "true" ] || [ "$CALL_FLOW_CDR_FLAG" == "true" ] || [ "$CALL_FLOW_NET_FLAG" == "true" ]; then
     log_info "update dashbase-values.yaml file to enable UCAAS call flow feature"
-    kubectl exec -it admindash-0 -n dashbase -- sed -i '/exporter\:/!b;n;c\ \ \ \ enabled\: true' /data/dashbase-values.yaml
+    #kubectl exec -it admindash-0 -n dashbase -- sed -i '/exporter\:/!b;n;c\ \ \ \ enabled\: true' /data/dashbase-values.yaml
     kubectl exec -it admindash-0 -n dashbase -- sed -i 's/ENABLE_UCAAS\:\ \"false\"/ENABLE_UCAAS\:\ \"true\"/' /data/dashbase-values.yaml
     kubectl exec -it admindash-0 -n dashbase -- sed -i 's/ENABLE_CALL\:\ \"false\"/ENABLE_CALL\:\ \"true\"/' /data/dashbase-values.yaml
-    kubectl exec -it admindash-0 -n dashbase -- sed -i '/exporter\:/!b;n;c\ \ \ \ enabled\: true' /data/dashbase-values.yaml
     kubectl exec -it admindash-0 -n dashbase -- bash -c "cat /data/exporter_metric.yaml >> /data/dashbase-values.yaml"
     #kubectl exec -it admindash-0 -n dashbase -- sed -i 's/ENABLE_INSIGHTS\:\ \"false\"/ENABLE_INSIGHTS\:\ \"true\"/' /data/dashbase-values.yaml
   fi
@@ -979,7 +978,7 @@ install_dashbase() {
   kubectl exec -it admindash-0 -n dashbase -- bash -c "/data/check-dashbase-deploy.sh > >(tee check-dashbase-deploy-output.txt) 2>&1"
   CHKDEPLOYNUM=$(kubectl exec -it admindash-0 -n dashbase -- cat check-dashbase-deploy-output.txt | grep -iv -c Checking)
   CHKSUCCEDNUM=$(kubectl exec -it admindash-0 -n dashbase -- cat check-dashbase-deploy-output.txt | grep -c met)
-  if [ "$CHKDEPLOYNUM" -eq "$CHKSUCCEDNUM" ]; then log_info "dashbase installation is completed"; else log_fatal "dashbase installation is failed"; fi
+  if [ "$CHKDEPLOYNUM" -eq "$CHKSUCCEDNUM" ]; then log_info "dashbase installation is completed"; else log_warning "dashbase installation may have issue, please check K8s pod status"; fi
 }
 
 # Expose endpoints via Ingress or LoadBalancer
