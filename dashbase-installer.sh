@@ -2,11 +2,12 @@
 
 BASEDIR=$(dirname "$0")
 
-DASHVERSION="2.3.1"
-INSTALLER_VERSION="2.3.1"
+DASHVERSION="2.4.1"
+INSTALLER_VERSION="2.4.1"
 PLATFORM="undefined"
 INGRESS_FLAG="false"
 V2_FLAG="false"
+V1_FLAG="false"
 VALUEFILE="dashbase-values.yaml"
 USERNAME="undefined"
 LICENSE="undefined"
@@ -81,6 +82,7 @@ display_help() {
   echo ""
   echo "   The following options only be used on V2 dashbase"
   echo "     --v2               setup dashbase V2"
+  echo "     --v1               setup dashbase using V1 backend even if dashbase version 2.X is specified"
   echo "     --bucketname       cloud object storage bucketname"
   echo "                        e.g. --bucketname=my-s3-bucket"
   echo "     --storage_account  cloud object storage account value, in AWS is the ACCESS KEY"
@@ -168,6 +170,9 @@ while [[ $# -gt 0 ]]; do
     ;;
   --v2)
     V2_FLAG="true"
+    ;;
+   --v1)
+    V1_FLAG="true"
     ;;
   --callflow_cdr)
     CALL_FLOW_CDR_FLAG="true"
@@ -498,12 +503,18 @@ check_version() {
     fi
   fi
   # set VNUM
-  if [[ "$VERSION" == *"nightly"* ]]; then
-    log_info "nightly version is used, VNUM is set to 2 by default"
-     VNUM="2"
+  if [ "$V1_FLAG" == "true" ]; then
+    log_info "V1 Backend is selected"
+    VNUM="1"
   else
-     VNUM=$(echo $VERSION |cut -d "." -f1)
-     log_info "version is $VERSION and VNUM is $VNUM"
+    log_info "V1 Backend is not specified, checking input dashbase version $VERSION"
+    if [[ "$VERSION" == *"nightly"* ]]; then
+       log_info "nightly version is used, VNUM is set to 2 by default"
+        VNUM="2"
+     else
+        VNUM=$(echo $VERSION |cut -d "." -f1)
+        log_info "version is $VERSION and VNUM is $VNUM"
+    fi
   fi
 }
 
