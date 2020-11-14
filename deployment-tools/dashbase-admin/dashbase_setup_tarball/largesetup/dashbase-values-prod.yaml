@@ -21,6 +21,9 @@ default:
         memory: 2G
   table:
     priorityClassName: dashbase-high-priority
+    podConfig:
+      nodeSelector:
+        role: backend
     storage:
       class: "dashbase-data"
       size: "1500Gi"
@@ -46,6 +49,9 @@ default:
 presto:
   enabled: false
   priorityClassName: dashbase-normal-priority
+  podConfig:
+    nodeSelector:
+      role: core
   presto:
     prestoKeystorePassword: PRESTO_KEYSTORE_PASSWORD
     dashbaseKeystorePassword: DASHBASE_KEYSTORE_PASSWORD
@@ -58,11 +64,17 @@ ingress:
 etcd_cluster:
   enabled: true
   priorityClassName: dashbase-high-priority
+  podConfig:
+    nodeSelector:
+      role: core
   replicas: 3
 
 filebeat:
   enabled: false
   priorityClassName: dashbase-normal-priority
+  podConfig:
+    nodeSelector:
+      role: core
   elasticsearch_url: https://table-system:7888
 
 tables:
@@ -75,6 +87,9 @@ services:
   etcd:
     enabled: false
     priorityClassName: dashbase-high-priority
+    podConfig:
+      nodeSelector:
+        role: core
     containerConfig:
       resources:
         limits:
@@ -88,6 +103,9 @@ services:
     #AUTH_SET
     enabled: false
     priorityClassName: dashbase-high-priority
+    podConfig:
+      nodeSelector:
+        role: core
     environment:
       DASHBASE_WEB_URL: https://web.test.dashbase.io
       ENABLE_SSL: 'false'
@@ -98,6 +116,9 @@ services:
     expose: false
     enabled: true
     priorityClassName: dashbase-high-priority
+    podConfig:
+      nodeSelector:
+        role: core
     environment:
       #API_ENV
       ENABLE_K8S_DISCOVERY: "true"
@@ -113,6 +134,9 @@ services:
   syslog:
     enabled: false
     priorityClassName: dashbase-normal-priority
+    podConfig:
+      nodeSelector:
+        role: core
     image: dashbase/fluentd:nightly
     imagePullPolicy: Always
     environment:
@@ -124,6 +148,9 @@ services:
     expose: true
     enabled: true
     priorityClassName: dashbase-high-priority
+    podConfig:
+      nodeSelector:
+        role: core
     secrets:
       presto-cert:
         dir: /run/prestojks/
@@ -165,6 +192,9 @@ services:
   prometheus:
     enabled: true
     priorityClassName: dashbase-high-priority
+    podConfig:
+      nodeSelector:
+        role: core
    # image: "dashbase/prometheus:nightly"
     imagePullPolicy: Always
     storage:
@@ -183,6 +213,9 @@ services:
   grafana:
     enabled: true
     priorityClassName: dashbase-high-priority
+    podConfig:
+      nodeSelector:
+        role: core
     containerConfig:
       resources:
         limits:
@@ -194,6 +227,9 @@ services:
   alertmanager:
     enabled: false
     priorityClassName: dashbase-normal-priority
+    podConfig:
+      nodeSelector:
+        role: core
     containerConfig:
       resources:
         limits:
@@ -205,6 +241,9 @@ services:
   pushgateway:
     enabled: true
     priorityClassName: dashbase-normal-priority
+    podConfig:
+      nodeSelector:
+        role: core
     containerConfig:
       resources:
         limits:
@@ -216,6 +255,9 @@ services:
   exporter:
     enabled: false
     priorityClassName: dashbase-high-priority
+    podConfig:
+      nodeSelector:
+        role: core
     config:
       metrics:
         ucaas_unique_leg_count:

@@ -7,6 +7,9 @@ enablePodPriority: true
 default_storageclass_provider:
   platform: "aws"
 
+v2:
+  bucket: MYBUCKET
+
 default:
   storage:
     class: "dashbase-meta"
@@ -21,6 +24,9 @@ default:
         memory: 2G
   table:
     priorityClassName: dashbase-high-priority
+    podConfig:
+      nodeSelector:
+        role: backend
     storage:
       class: "dashbase-data"
       size: "1500Gi"
@@ -46,6 +52,9 @@ default:
 presto:
   enabled: false
   priorityClassName: dashbase-normal-priority
+  podConfig:
+    nodeSelector:
+      role: core
   presto:
     prestoKeystorePassword: PRESTO_KEYSTORE_PASSWORD
     dashbaseKeystorePassword: DASHBASE_KEYSTORE_PASSWORD
@@ -58,23 +67,59 @@ ingress:
 etcd_cluster:
   enabled: true
   priorityClassName: dashbase-high-priority
+  podConfig:
+    nodeSelector:
+      role: core
   replicas: 3
 
 filebeat:
   enabled: false
   priorityClassName: dashbase-normal-priority
+  podConfig:
+    nodeSelector:
+      role: core
   elasticsearch_url: https://table-system:7888
 
-tables:
-  LOGS:
-    replicas: 2
-# Dashbase_Logs
+# V1_tables
 
+tablesv2:
+  LOGS:
+    table_manager:
+      priorityClassName: dashbase-high-priority
+      podConfig:
+        nodeSelector:
+          role: backend
+      replicas: 1
+      containerConfig:
+        resources:
+          requests:
+            cpu: 1
+            memory: 6G
+          limits:
+            cpu: 1
+            memory: 6G
+    indexer:
+      priorityClassName: dashbase-high-priority
+      podConfig:
+        nodeSelector:
+          role: backend
+      replicas: 1
+      containerConfig:
+        resources:
+          requests:
+            cpu: INXCPU
+            memory: INXMEMG
+          limits:
+            cpu: INXCPU
+            memory: INXMEMG
 
 services:
   etcd:
     enabled: false
     priorityClassName: dashbase-high-priority
+    podConfig:
+      nodeSelector:
+        role: core
     containerConfig:
       resources:
         limits:
@@ -88,6 +133,9 @@ services:
     #AUTH_SET
     enabled: false
     priorityClassName: dashbase-high-priority
+    podConfig:
+      nodeSelector:
+        role: core
     environment:
       DASHBASE_WEB_URL: https://web.test.dashbase.io
       ENABLE_SSL: 'false'
@@ -98,6 +146,9 @@ services:
     expose: false
     enabled: true
     priorityClassName: dashbase-high-priority
+    podConfig:
+      nodeSelector:
+        role: core
     environment:
       #API_ENV
       ENABLE_K8S_DISCOVERY: "true"
@@ -113,6 +164,9 @@ services:
   syslog:
     enabled: false
     priorityClassName: dashbase-normal-priority
+    podConfig:
+      nodeSelector:
+        role: core
     image: dashbase/fluentd:nightly
     imagePullPolicy: Always
     environment:
@@ -124,6 +178,9 @@ services:
     expose: true
     enabled: true
     priorityClassName: dashbase-high-priority
+    podConfig:
+      nodeSelector:
+        role: core
     secrets:
       presto-cert:
         dir: /run/prestojks/
@@ -165,7 +222,10 @@ services:
   prometheus:
     enabled: true
     priorityClassName: dashbase-high-priority
-   # image: "dashbase/prometheus:nightly"
+    podConfig:
+      nodeSelector:
+        role: core
+  # image: "dashbase/prometheus:nightly"
     imagePullPolicy: Always
     storage:
       class: "dashbase-meta"
@@ -178,11 +238,14 @@ services:
         requests:
           cpu: 1
           memory: 2G
-   # prometheus_env_variable
+  # prometheus_env_variable
 
   grafana:
     enabled: true
     priorityClassName: dashbase-high-priority
+    podConfig:
+      nodeSelector:
+        role: core
     containerConfig:
       resources:
         limits:
@@ -194,6 +257,9 @@ services:
   alertmanager:
     enabled: false
     priorityClassName: dashbase-normal-priority
+    podConfig:
+      nodeSelector:
+        role: core
     containerConfig:
       resources:
         limits:
@@ -205,6 +271,9 @@ services:
   pushgateway:
     enabled: true
     priorityClassName: dashbase-normal-priority
+    podConfig:
+      nodeSelector:
+        role: core
     containerConfig:
       resources:
         limits:
@@ -213,9 +282,27 @@ services:
         requests:
           cpu: 1
           memory: 2G
+  searcher:
+    enabled: true
+    priorityClassName: dashbase-high-priority
+    podConfig:
+      nodeSelector:
+        role: backend
+    replicas: 2
+    containerConfig:
+      resources:
+        requests:
+          cpu: 4
+          memory: 8G
+        limits:
+          cpu: 4
+          memory: 8G
   exporter:
     enabled: false
     priorityClassName: dashbase-high-priority
+    podConfig:
+      nodeSelector:
+        role: core
     config:
       metrics:
         ucaas_unique_leg_count:

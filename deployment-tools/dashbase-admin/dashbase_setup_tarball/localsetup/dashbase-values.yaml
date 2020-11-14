@@ -2,6 +2,8 @@ dashbase_version: nightly
 
 https: true
 
+enablePodPriority: true
+
 default_storageclass_provider:
   platform: "aws"
 
@@ -24,6 +26,14 @@ default:
       READER_CACHE_MEM_PERCENT: "60"
       NUM_INDEXING_THREADS: "1"
 
+
+presto:
+  enabled: false
+  priorityClassName: dashbase-normal-priority
+  presto:
+    prestoKeystorePassword: PRESTO_KEYSTORE_PASSWORD
+    dashbaseKeystorePassword: DASHBASE_KEYSTORE_PASSWORD
+
 ingress:
   enabled: true
   certmanager: false
@@ -31,22 +41,18 @@ ingress:
 
 etcd_cluster:
   enabled: true
+  priorityClassName: dashbase-high-priority
   replicas: 3
 
 filebeat:
   enabled: false
+  priorityClassName: dashbase-normal-priority
   elasticsearch_url: https://table-system:7888
 
 tables:
   LOGS:
       replicas: 1
 # Dashbase_Logs
-
-presto:
-  enabled: false
-  presto:
-    prestoKeystorePassword: PRESTO_KEYSTORE_PASSWORD
-    dashbaseKeystorePassword: DASHBASE_KEYSTORE_PASSWORD
 
 services:
   etcd:
