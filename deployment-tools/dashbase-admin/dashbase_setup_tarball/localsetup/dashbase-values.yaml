@@ -51,33 +51,46 @@ filebeat:
 
 tables:
   LOGS:
-      replicas: 1
+    replicas: 1
 # Dashbase_Logs
 
 services:
   etcd:
     enabled: false
-  api:
-    enabled: true
+    priorityClassName: dashbase-high-priority
+
+  auth:
+    #AUTH_SET
+    enabled: false
+    priorityClassName: dashbase-high-priority
     environment:
+      DASHBASE_WEB_URL: https://web.test.dashbase.io
+      ENABLE_SSL: 'false'
+      INTERNAL_TOKEN: "TOKENSTRING"
+      REST_URL: http://rest-auth:9478/login/basic
+
+  api:
+    expose: false
+    enabled: true
+    priorityClassName: dashbase-high-priority
+    environment:
+      #API_ENV
       ENABLE_K8S_DISCOVERY: "true"
+
   syslog:
     enabled: false
+    priorityClassName: dashbase-normal-priority
     image: dashbase/fluentd:nightly
-    kind: Deployment
-    componentName: fluentd
-    ports:
-      syslog: 5040
-      admin: 23241
-    expose: false
-    annotations:
-      dashbase.io/scrape: "true"
-      dashbase.io/scrape_port: "24231"
-      dashbase.io/filebeat.parser.type: "simple"
-      dashbase.io/filebeat.parser.pattern: "yyyy-MM-dd HH:mm:ss Z"
+    imagePullPolicy: Always
+    environment:
+      SYSLOG_ELASTICSEARCH_HOSTS: https://table-LOGS:7888
+#     SYSLOG_MESSAGE_PARSER: "{\"_message_parser\":{\"type\":\"grok\",\"pattern\":\"%{HTTPD_COMBINEDLOG}\"}}"
+#     SYSLOG_MESSAGE_FORMAT: rfc5424
+
   web:
     expose: true
     enabled: true
+    priorityClassName: dashbase-high-priority
     secrets:
       presto-cert:
         dir: /run/prestojks/
@@ -92,13 +105,16 @@ services:
         dir: /run/prestojks/
         file: presto-keystore-password
     environment:
+      #WEB_ENV
       ENABLE_SEARCH_SCHEDULER: "true"
       ENABLE_CHRONOLOGICAL_SORT: "true"
       ENABLE_SCHEDULED_METRICS: "true"
       DISPLAY_COLOREDFIELDS: "from.sip-uri.user,to.sip-uri.user,call-id,level"
       ENABLE_CALL: "false"
       CALL_TABLES: "LOGS"
-      CALLFLOW_TYPE: "SIP"
+      #CALLFLOW_TYPE: "SIP"
+      SIP_PAGE: "false"
+      CDR_PAGE: "false"
       ENABLE_UCAAS: "false"
       ENABLE_APPS: "false"
       ENABLE_APPS_NETSAPIENS: "false"
@@ -107,6 +123,7 @@ services:
 
   prometheus:
     enabled: true
+    priorityClassName: dashbase-high-priority
    # image: "dashbase/prometheus:nightly"
     imagePullPolicy: Always
     storage:
@@ -116,10 +133,16 @@ services:
 
   grafana:
     enabled: true
+    priorityClassName: dashbase-high-priority
+
   alertmanager:
     enabled: false
+    priorityClassName: dashbase-normal-priority
+
   pushgateway:
     enabled: true
+    priorityClassName: dashbase-normal-priority
+
   exporter:
     enabled: false
     config:

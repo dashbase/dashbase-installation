@@ -207,6 +207,7 @@ remove_dashbase_via_admindash_helm3() {
     log_info "dashbase components deployed via helm"
     # remove dashbase
     log_info "removing dashbase components via helm in admindash pod"
+    kubectl delete etcdcluster etcd-cluster -n dashbase
     kubectl exec -it admindash-0 -n dashbase -- helm delete dashbase -n dashbase
   done
 }
@@ -227,6 +228,7 @@ remove_etcd_via_helm() {
     log_info "etcd-operator is detected - helm2"
     # remove etcd-operator
     log_info "removing etcd-operator via helm2"
+    kubectl delete etcdcluster etcd-cluster -n dashbase
     helm delete --purge dashbase-etcd
   done
 }
@@ -340,6 +342,19 @@ remove_sa_dashadmin() {
   fi
 }
 
+remove_etcd_cluster() {
+  # delete etcd-cluster pods if not deleted in helm delete dashbase
+  if [ "$(kubectl get po -n dashbase |grep -c etcd-cluster)" -gt "0" ]; then
+    log_info "etcd_cluster pods exists"
+    log_info "delete etcd_cluster pods"
+    ETCDCLUSTER=$(kubectl get po -n dashbase |grep etcd-cluster |awk '{print $1}' |tr "\n" " ")
+    for EPOD in $ETCDCLUSTER ; do
+      echo "delete pod $EPOD"
+      kubectl delete pod $EPOD -n dashbase --grace-period=0 --force
+    done
+  fi
+}
+
 remove_combo() {
     # delete demo setup
     remove_demo_setup
@@ -361,6 +376,10 @@ remove_combo() {
     remove_sa_tiller
     # delete namespace
     remove_cluster_role
+    # delete etcd-cluster if not deleted
+    remove_etcd_cluster
+    # remove namespace dashbase
+    sleep 10
     kubectl delete namespace dashbase
 }
 

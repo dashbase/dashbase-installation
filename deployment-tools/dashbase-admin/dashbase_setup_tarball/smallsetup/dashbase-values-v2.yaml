@@ -20,15 +20,14 @@ default:
     storage:
       class: "dashbase-data"
       size: "1000Gi"
-
     containerConfig:
       resources:
         requests:
-          cpu: 3.5
-          memory: 26G
+          cpu: 2.5
+          memory: 20G
         limits:
-          cpu: 3.5
-          memory: 26G
+          cpu: 2.5
+          memory: 20G
     environment:
       JAVA_OPTS: "-Xmx20g -Xms20g"
       IGNORE_PARSE_FAILURE: true

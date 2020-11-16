@@ -12,7 +12,7 @@ VALUEFILE="dashbase-values.yaml"
 USERNAME="undefined"
 LICENSE="undefined"
 AUTHBASICUSERNAME="tester"
-AUTHBASICPASSWORD="tester123"
+AUTHBASICPASSWORD="tester123!"
 AUTHADMINUSERNAME="dashbaseadm"
 AUTHADMINPASSWORD="dashbaseadm123!"
 ADMINUSERNAME="dashbaseadm"
@@ -781,7 +781,7 @@ check_helm() {
   # check helm
   # adding dashbase helm repo
   kubectl exec -it admindash-0 -n dashbase -- bash -c "helm repo add dashbase https://charts.dashbase.io"
-  kubectl exec -it admindash-0 -n dashbase -- bash -c "helm repo add stable https://kubernetes-charts.storage.googleapis.com"
+  kubectl exec -it admindash-0 -n dashbase -- bash -c "helm repo add stable https://charts.helm.sh/stable"
   kubectl exec -it admindash-0 -n dashbase -- bash -c "helm repo update"
   kubectl exec -it admindash-0 -n dashbase -- bash -c "helm repo list"
 }
