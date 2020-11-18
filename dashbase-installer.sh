@@ -11,8 +11,10 @@ V1_FLAG="false"
 VALUEFILE="dashbase-values.yaml"
 USERNAME="undefined"
 LICENSE="undefined"
-AUTHUSERNAME="undefined"
-AUTHPASSWORD="undefined"
+AUTHBASICUSERNAME="tester"
+AUTHBASICPASSWORD="tester123!"
+AUTHADMINUSERNAME="dashbaseadm"
+AUTHADMINPASSWORD="dashbaseadm123!"
 ADMINUSERNAME="dashbaseadm"
 ADMINPASSWORD="dashbase123"
 BUCKETNAME="undefined"
@@ -20,10 +22,11 @@ STORAGE_ACCOUNT="undefined"
 STORAGE_KEY="undefined"
 STORAGE_ENDPOINT="undefined"
 PRESTO_FLAG="false"
+PROD_FLAG="false"
 TABLENAME="logs"
 CALL_FLOW_CDR_FLAG="false"
 CALL_FLOW_SIP_FLAG="false"
-CALL_FLOW_NET_FLAG="false"
+#CALL_FLOW_NET_FLAG="false"
 DEMO_FLAG="false"
 WEBRTC_FLAG="false"
 SYSTEM_LOG="false"
@@ -47,13 +50,17 @@ display_help() {
   echo "                    e.g.  --exposemon"
   echo "     --basic_auth   use basic auth to secure dashbase web UX e.g.  --basic_auth"
   echo "                    basic auth requires authusername and authpassword options"
-  echo "     --authusername basic auth username, use together with basic_auth option"
-  echo "                    e.g. --authusername=admin"
-  echo "     --authpassword basic auth password, use together with authusername option"
+  echo "     --authusername basic auth username with basic role, use together with basic_auth option"
+  echo "                    e.g. --authusername=myuser"
+  echo "     --authpassword basic auth password for basic role user, use together with authusername option"
   echo "                    e.g. --authpassword=dashbase"
+  echo "     --authadmin_username  basic auth username with admin role, use together with basic_auth option"
+  echo "                           e.g. --authusername=myadmin"
+  echo "     --authadmin_password  basic auth password for admin role user, use together with authusername option"
+  echo "                           e.g. --authpassword=dashbase"
   echo "     --adminusername specify admin username to access to admin page web portal"
   echo "                     default admin user is dashbaseadm"
-  echo "                     e.g. --adminusername=myadmin"
+  echo "                     e.g. --adminusername=myechadmin"
   echo "     --adminpassword specify admin password to access to admin page web portal"
   echo "                     default admin passowrd is dashbase123"
   echo "                     e.g. --adminpassword=myadminpass"
@@ -72,13 +79,15 @@ display_help() {
   echo "     UCASS CALL FLOW features, enable either call flow cdr or sip or netsapiens log"
   echo "     --callflow_cdr enable ucass call flow cdr log feature, e.g. --callflow_cdr"
   echo "     --callflow_sip enable ucass call flow SIP log feature, e.g. --callflow_sip"
-  echo "     --callflow_net enable ucass call flow netsapiens log feature, e.g. --callflow_net"
   echo ""
   echo "     --help         display command options and usage example"
   echo "     --webrtc       enable remote read on prometheus to api url for webrtc data e.g. --webrtc"
   echo "     --systemlog    enable dashbase system log table, e.g. --systemlog  this will create a table called system."
   echo "                    and contains all dashbase pods logs in this system table"
   echo "     --demo         setup freeswitch,filebeat pods and feed log data into the target table"
+  echo "     --prod         setup dashbase with production mode that use nodegroups"
+  echo "                    e.g. --prod"
+  echo "                    dashbase apps will deploy to nodgegroups dashbase-core and dashbase-backend"
   echo ""
   echo "   The following options only be used on V2 dashbase"
   echo "     --v2               setup dashbase V2"
@@ -186,11 +195,19 @@ while [[ $# -gt 0 ]]; do
     ;;
   --authusername)
     fail_if_empty "$PARAM" "$VALUE"
-    AUTHUSERNAME=$VALUE
+    AUTHBASICUSERNAME=$VALUE
     ;;
   --authpassword)
     fail_if_empty "$PARAM" "$VALUE"
-    AUTHPASSWORD=$VALUE
+    AUTHBASICPASSWORD=$VALUE
+    ;;
+  --authadmin_username)
+    fail_if_empty "$PARAM" "$VALUE"
+    AUTHADMINUSERNAME=$VALUE
+    ;;
+  --authadmin_password)
+    fail_if_empty "$PARAM" "$VALUE"
+    AUTHADMINPASSWORD=$VALUE
     ;;
   --adminusername)
     fail_if_empty "$PARAM" "$VALUE"
@@ -227,6 +244,9 @@ while [[ $# -gt 0 ]]; do
     ;;
   --presto)
     PRESTO_FLAG="true"
+    ;;
+  --prod)
+    PROD_FLAG="true"
     ;;
   --demo)
     DEMO_FLAG="true"
@@ -548,15 +568,32 @@ check_basic_auth() {
   if [ "$BASIC_AUTH" != "true" ]; then
     log_info "Basic auth setting is not selected"
   else
-    log_info "Basic auth is selected and checks input auth username and password"
-    if [ "$AUTHUSERNAME" == "undefined" ] | [ "$AUTHPASSWORD" == "undefined" ]; then
-      log_fatal "Either basic auth username or password is not entered"
+    log_info "Basic auth is selected and checks input auth username and password with basic role permission"
+    if [ "$AUTHBASICUSERNAME" == "tester" ] | [ "$AUTHBASICPASSWORD" == "tester123!" ]; then
+      log_info "Basic auth basic username and password is not entered, and default will be using"
+      log_info "The default basic auth basic username is $AUTHBASICUSERNAME"
+      log_info "The default basic auth basic user password is $AUTHBASICPASSWORD"
     else
-      if  [[ "$AUTHUSERNAME" =~ [^a-zA-Z0-9] ]] && [[ "$AUTHPASSWORD" =~ [^a-zA-Z0-9] ]]  ; then
-        log_fatal "The entered auth username or password is not alphanumeric"
+      log_info "Basic auth basic username and password is entered"
+      if  [[ "$AUTHBASICUSERNAME" =~ [^a-zA-Z0-9] ]] && [[ "$AUTHBASICPASSWORD" =~ [^a-zA-Z0-9] ]]  ; then
+        log_fatal "The entered basic auth username or password is not alphanumeric"
       else
-         log_info "The entered auth usermane is $AUTHUSERNAME"
-         log_info "The entered auth password is $AUTHPASSWORD"
+         log_info "The entered auth usermane is $AUTHBASICUSERNAME"
+         log_info "The entered auth password is $AUTHBASICPASSWORD"
+      fi
+    fi
+    log_info "Basic auth is selected and checks input auth username and password with admin role permission"
+    if [ "$AUTHADMINUSERNAME" == "dashbaseadm" ] | [ "$AUTHADMINPASSWORD" == "dashbaseadm123!" ]; then
+      log_info "Basic auth basic username and password is not entered, and default will be using"
+      log_info "The default basic auth basic username is $AUTHADMINUSERNAME"
+      log_info "The default basic auth basic user password is $AUTHADMINPASSWORD"
+    else
+      log_info "Basic auth basic username and password is entered"
+      if  [[ "$AUTHADMINUSERNAME" =~ [^a-zA-Z0-9] ]] && [[ "$AUTHADMINPASSWORD" =~ [^a-zA-Z0-9] ]]  ; then
+        log_fatal "The entered basic auth username or password is not alphanumeric"
+      else
+         log_info "The entered auth usermane is $AUTHADMINUSERNAME"
+         log_info "The entered auth password is $AUTHADMINPASSWORD"
       fi
     fi
   fi
@@ -597,6 +634,43 @@ check_syslog() {
   fi
 }
 
+check_eksctl() {
+  # check eksctl command  if not exist; then install it
+  if [ "$(command -v eksctl > /dev/null ; echo $?)" -eq "0" ]; then
+    log_info "eksctl is installed in this host"
+    eksctl version
+  else
+    log_info "eksctl is not installed, installing it now"
+    curl --silent --location "https://github.com/weaveworks/eksctl/releases/download/latest_release/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
+    mv /tmp/eksctl /usr/local/bin
+    chmod +x /usr/local/bin/eksctl
+  fi
+}
+
+check_prod() {
+  if [ "PROD_FLAG" == "true" ]; then
+    log_info "Production setup is selected. And it requires K8s nodegroup dashbase-core and dashbase-backend"
+    # check cluster type selection
+    if [ "$CLUSTERTYPE" != "large" ]; then
+      log_fatal "Production option requires to use large cluster setup, and detected cluster type is $CLUSTERTYPE"
+    fi
+    # inspect nodegroup for AWS EKS cluster
+    if [ "$PLATFORM" == "aws" ]; then
+       CLUSTERNAME=$(kubectl config get-contexts |grep "*" |awk '{ print $3}' |cut -d "/" -f2)
+       NODEGP_COUNT=$(eksctl get nodegroup --cluster="$CLUSTERNAME" |tail -n +2 | awk '{print $2}' | grep -cE 'dashbase-backend|dashbase-core')
+       log_info "Checking EKS cluster $CLUSTERNAME nodegroups"
+       if [ "$NODEGP_COUNT" -eq 2 ]; then
+         log_info "dashbase-backend and dashbase-core nodegroups are detected"
+        else
+          log_warning "Production option is selected but nodegroups are not detected"
+          log_warning "Production option requires two K8s nodegroups: dashbase-core and dashbase-backend"
+        fi
+    fi
+  else
+    log_info "Production setup is not selected"
+  fi
+}
+
 preflight_check() {
   # preflight checks
   log_info "OS type running this script is $OSTYPE"
@@ -606,6 +680,13 @@ preflight_check() {
       log_fatal "This script requires $x command and is not found."
     }
   done
+  # check eksctl
+  if [ "$PLATFORM" == "aws" ]; then
+     check_eksctl
+  fi
+
+  # check production flag
+  check_prod
 
   # check kubernetes API server is connectable
   if ! kubectl cluster-info &>/dev/null; then
@@ -700,7 +781,7 @@ check_helm() {
   # check helm
   # adding dashbase helm repo
   kubectl exec -it admindash-0 -n dashbase -- bash -c "helm repo add dashbase https://charts.dashbase.io"
-  kubectl exec -it admindash-0 -n dashbase -- bash -c "helm repo add stable https://kubernetes-charts.storage.googleapis.com"
+  kubectl exec -it admindash-0 -n dashbase -- bash -c "helm repo add stable https://charts.helm.sh/stable"
   kubectl exec -it admindash-0 -n dashbase -- bash -c "helm repo update"
   kubectl exec -it admindash-0 -n dashbase -- bash -c "helm repo list"
 }
@@ -733,10 +814,18 @@ download_dashbase() {
   echo "VNUM is $VNUM"
   if [[ "$V2_FLAG" == "true" ]] || [[ "$VNUM" -ge 2 ]]; then
     log_info "Copy dashbase-values-v2.yaml file for v2 setup"
-    kubectl cp -n dashbase "$BASEDIR"/deployment-tools/dashbase-admin/dashbase_setup_tarball/${CLUSTERTYPE}setup/dashbase-values-v2.yaml admindash-0:/data/dashbase-values.yaml
+    if [[ "$PROD_FLAG" == "true" ]]; then
+       kubectl cp -n dashbase "$BASEDIR"/deployment-tools/dashbase-admin/dashbase_setup_tarball/largesetup/dashbase-values-v2-prod.yaml admindash-0:/data/dashbase-values.yaml
+    else
+       kubectl cp -n dashbase "$BASEDIR"/deployment-tools/dashbase-admin/dashbase_setup_tarball/${CLUSTERTYPE}setup/dashbase-values-v2.yaml admindash-0:/data/dashbase-values.yaml
+    fi
   else
     log_info "Copy dashbase-values.yaml file for v1 setup"
-    kubectl cp -n dashbase "$BASEDIR"/deployment-tools/dashbase-admin/dashbase_setup_tarball/${CLUSTERTYPE}setup/dashbase-values.yaml admindash-0:/data/dashbase-values.yaml
+    if [[ "$PROD_FLAG" == "true" ]]; then
+       kubectl cp -n dashbase "$BASEDIR"/deployment-tools/dashbase-admin/dashbase_setup_tarball/largesetup/dashbase-values-prod.yaml admindash-0:/data/dashbase-values.yaml
+    else
+       kubectl cp -n dashbase "$BASEDIR"/deployment-tools/dashbase-admin/dashbase_setup_tarball/${CLUSTERTYPE}setup/dashbase-values.yaml admindash-0:/data/dashbase-values.yaml
+    fi
   fi
 
   kubectl exec -it admindash-0 -n dashbase -- bash -c "chmod a+x /data/*.sh"
@@ -744,11 +833,25 @@ download_dashbase() {
   kubectl exec -it admindash-0 -n dashbase -- bash -c "ln -s /data/dashbase-values.yaml  /dashbase/dashbase-values.yaml"
 }
 
+create_internal_token() {
+  # create 32 bits internal token
+  kubectl exec -it admindash-0 -n dashbase -- bash -c "cat /dev/urandom | tr -dc 'a-z-0-9' | fold -w 32 | head -n 1 > /data/TOKEN-STRING"
+  TOKEN=$(kubectl exec -it admindash-0 -n dashbase -- bash -c "cat /data/TOKEN-STRING")
+  log_info "created internal token is $TOKEN"
+
+  # update dashbase-values.yaml file
+  kubectl exec -it admindash-0 -n dashbase -- sed -i "s|TOKENSTRING|$TOKEN|g" /data/dashbase-values.yaml
+  kubectl exec -it admindash-0 -n dashbase -- sed -i "s|TOKENSTRING|$TOKEN|g" /data/web_env.yaml
+  kubectl exec -it admindash-0 -n dashbase -- sed -i "s|TOKENSTRING|$TOKEN|g" /data/api_env.yaml
+  kubectl exec -it admindash-0 -n dashbase -- sed -i "s|MYDOMAIN|$SUBDOMAIN|g" /data/web_env.yaml
+  kubectl exec -it admindash-0 -n dashbase -- sed -i "s|MYDOMAIN|$SUBDOMAIN|g" /data/api_env.yaml
+}
+
 update_dashbase_valuefile() {
   # update dashbase-values.yaml for platform choice and subdomain
   if [ -n "$SUBDOMAIN" ]; then
     log_info "update ingress subdomain in dashbase-values.yaml file"
-    kubectl exec -it admindash-0 -n dashbase -- bash -c "sed -i 's|test.dashbase.io|$SUBDOMAIN|' /data/dashbase-values.yaml"
+    kubectl exec -it admindash-0 -n dashbase -- bash -c "sed -i 's|test.dashbase.io|$SUBDOMAIN|g' /data/dashbase-values.yaml"
   elif [ -z "$SUBDOMAIN" ]; then
     log_info "no input on --subdomain will use default which is test.dashbase.io"
   fi
@@ -783,11 +886,16 @@ update_dashbase_valuefile() {
   if [ "$BASIC_AUTH" == "true" ]; then
     log_info "update dashbase-values.yaml file for basic auth"
     kubectl exec -it admindash-0 -n dashbase -- sed -i '/web\:/!b;n;c\ \ \ \ expose\: false' /data/dashbase-values.yaml
+    kubectl exec -it admindash-0 -n dashbase -- sed -i '/\#AUTH\_SET/!b;n;c\ \ \ \ enabled\: true' /data/dashbase-values.yaml
+    create_internal_token
+    kubectl exec -it admindash-0 -n dashbase -- bash -c "sed -i '/\#WEB\_ENV/ r /data/web_env.yaml' /data/dashbase-values.yaml"
+    kubectl exec -it admindash-0 -n dashbase -- bash -c "sed -i '/\#API\_ENV/ r /data/api_env.yaml' /data/dashbase-values.yaml"
   fi
   # update table name
   log_info "update dashbase-values.yaml file with table name = $TABLENAME"
   kubectl exec -it admindash-0 -n dashbase -- sed -i "s|LOGS|$TABLENAME|" /data/dashbase-values.yaml
-  kubectl exec -it admindash-0 -n dashbase -- sed -i "s|LOGS|$TABLENAME|" /data/exporter_metric.yaml
+  # exporter is currently not using, exporter related config will be removed in future
+  # kubectl exec -it admindash-0 -n dashbase -- sed -i "s|LOGS|$TABLENAME|" /data/exporter_metric.yaml
 
   # update indexer cpu and memory
   if [[ "$V2_FLAG" ==  "true" ]] || [[ "$VNUM" -ge 2 ]]; then
@@ -814,24 +922,16 @@ update_dashbase_valuefile() {
     fi
   fi
 
-  # update ucaas callflow options cdr, sip or netsapiens log type
-  if [ "$CALL_FLOW_SIP_FLAG" == "true" ] || [ "$CALL_FLOW_CDR_FLAG" == "true" ] || [ "$CALL_FLOW_NET_FLAG" == "true" ]; then
-    log_info "update dashbase-values.yaml file to enable UCAAS call flow feature"
-    #kubectl exec -it admindash-0 -n dashbase -- sed -i '/exporter\:/!b;n;c\ \ \ \ enabled\: true' /data/dashbase-values.yaml
+  # update ucaas callflow options cdr, sip log type
+  if [ "$CALL_FLOW_SIP_FLAG" == "true" ]; then
+    log_info "update dashbase-values.yaml file to enable callflow SIP_PAGE feature"
+    kubectl exec -it admindash-0 -n dashbase -- sed -i 's/SIP_PAGE\:\ \"false\"/SIP_PAGE\:\ \"true\"/' /data/dashbase-values.yaml
     kubectl exec -it admindash-0 -n dashbase -- sed -i 's/ENABLE_UCAAS\:\ \"false\"/ENABLE_UCAAS\:\ \"true\"/' /data/dashbase-values.yaml
     kubectl exec -it admindash-0 -n dashbase -- sed -i 's/ENABLE_CALL\:\ \"false\"/ENABLE_CALL\:\ \"true\"/' /data/dashbase-values.yaml
-    kubectl exec -it admindash-0 -n dashbase -- bash -c "cat /data/exporter_metric.yaml >> /data/dashbase-values.yaml"
-    #kubectl exec -it admindash-0 -n dashbase -- sed -i 's/ENABLE_INSIGHTS\:\ \"false\"/ENABLE_INSIGHTS\:\ \"true\"/' /data/dashbase-values.yaml
   fi
-  # update log data type for call flow
-  if [ "$CALL_FLOW_SIP_FLAG" == "true" ]; then
-     log_info "The default dashbase-values.yaml file is set for SIP log data in call flow feature"
-  elif [ "$CALL_FLOW_CDR_FLAG" == "true" ]; then
-     log_info "update dashbase-values.yaml file for CDR log data in call flow feature"
-     kubectl exec -it admindash-0 -n dashbase -- sed -i 's/CALLFLOW_TYPE\:\ \"SIP\"/CALLFLOW_TYPE\:\ \"CDR\"/' /data/dashbase-values.yaml
-  elif [ "$CALL_FLOW_NET_FLAG" == "true" ]; then
-     log_info "update dashbase-values.yaml file for Netsapiens log data in call flow feature"
-     kubectl exec -it admindash-0 -n dashbase -- sed -i 's/CALLFLOW_TYPE\:\ \"SIP\"/CALLFLOW_TYPE\:\ \"CALLFLOW\"/' /data/dashbase-values.yaml
+  if [ "$CALL_FLOW_CDR_FLAG" == "true" ]; then
+     log_info "update dashbase-values.yaml file to enable callflow CDR_PAGE feature"
+     kubectl exec -it admindash-0 -n dashbase -- sed -i 's/CDR_PAGE\:\ \"false\"/CDR_PAGE\:\ \"true\"/' /data/dashbase-values.yaml
      kubectl exec -it admindash-0 -n dashbase -- sed -i 's/ENABLE_APPS\:\ \"false\"/ENABLE_APPS\:\ \"true\"/' /data/dashbase-values.yaml
      kubectl exec -it admindash-0 -n dashbase -- sed -i 's/ENABLE_APPS_NETSAPIENS\:\ \"false\"/ENABLE_APPS_NETSAPIENS\:\ \"true\"/' /data/dashbase-values.yaml
      sleep 3
@@ -938,11 +1038,22 @@ create_sslcert() {
   fi
 }
 
-create_basic_auth_secret() {
-  log_info "create basic auth secret in admin pod"
-  kubectl exec -it admindash-0 -n dashbase -- htpasswd -b -c /data/auth "$AUTHUSERNAME" "$AUTHPASSWORD"
-  kubectl exec -it admindash-0 -n dashbase -- kubectl create secret generic dashbase-auth --from-file=/data/auth -n dashbase
-  kubectl get secret dashbase-auth -n dashbase
+#create_basic_auth_secret() {
+#  log_info "create basic auth secret in admin pod"
+#  kubectl exec -it admindash-0 -n dashbase -- htpasswd -b -c /data/auth "$AUTHUSERNAME" "$AUTHPASSWORD"
+#  kubectl exec -it admindash-0 -n dashbase -- kubectl create secret generic dashbase-auth --from-file=/data/auth -n dashbase
+#  kubectl get secret dashbase-auth -n dashbase
+#}
+
+create_ingress_rest_auth_secret() {
+  log_info "Creating TLS secret used for rest-auth ingress endpoint"
+  KEY_FILE="rest_auth_ssl_key_file"
+  CERT_FILE="rest_auth_ssl_cert_file"
+  CERT_NAME="ingress-rest-auth"
+  HOST=rest-auth.$SUBDOMAIN
+  kubectl exec -it admindash-0 -n dashbase -- openssl req -x509 -nodes -days 3650  -newkey rsa:2048 -keyout /data/$KEY_FILE -out /data/$CERT_FILE -subj "/CN=$HOST/O=$HOST"
+  kubectl exec -it admindash-0 -n dashbase --  kubectl create secret tls $CERT_NAME --key /data/$KEY_FILE --cert /data/$CERT_FILE -n dashbase
+  kubectl get secret $CERT_NAME -n dashbase
 }
 
 create_admin_auth_secret() {
@@ -982,6 +1093,17 @@ install_dashbase() {
   if [ "$CHKDEPLOYNUM" -eq "$CHKSUCCEDNUM" ]; then log_info "dashbase installation is completed"; else log_warning "dashbase installation may have issue, please check K8s pod status"; fi
 }
 
+setup_rest_auth() {
+  log_info "setup rest-auth pod for dashbase basic authentication"
+  kubectl cp -n dashbase "$BASEDIR"/deployment-tools/dashbase-admin/dashbase_setup_tarball/largesetup/rest-auth.yaml admindash-0:/data/rest-auth.yaml
+  kubectl exec -it admindash-0 -n dashbase -- sed -i "s|BASICUSER|$AUTHBASICUSERNAME|" /data/rest-auth.yaml
+  kubectl exec -it admindash-0 -n dashbase -- sed -i "s|BASIC_USER_PASSWORD|$AUTHBASICPASSWORD|" /data/rest-auth.yaml
+  kubectl exec -it admindash-0 -n dashbase -- sed -i "s|ADMINUSER|$AUTHADMINUSERNAME|" /data/rest-auth.yaml
+  kubectl exec -it admindash-0 -n dashbase -- sed -i "s|ADMIN_USER_PASSWORD|$AUTHADMINPASSWORD|" /data/rest-auth.yaml
+  kubectl exec -it admindash-0 -n dashbase -- sed -i "s|MYDOMAIN|$SUBDOMAIN|g" /data/rest-auth.yaml
+  kubectl exec -it admindash-0 -n dashbase -- bash -c "kubectl apply -f /data/rest-auth.yaml -n dashbase"
+}
+
 # Expose endpoints via Ingress or LoadBalancer
 expose_ingress_endpoints() {
     log_info "setup ngnix ingress controller to expose service "
@@ -997,11 +1119,12 @@ expose_ingress_endpoints() {
     # Add basic auth ingress
     if [ "$BASIC_AUTH" == "true" ]; then
       log_info "Creating ingress for web with basic auth"
-      create_basic_auth_secret
-      # update ingress-web.yaml with subdomain name
-      kubectl exec -it admindash-0 -n dashbase -- bash -c "sed -i 's|test.dashbase.io|$SUBDOMAIN|' /data/ingress-web.yaml"
-      # apply the ingress-web.yaml into K8s cluster
-      kubectl exec -it admindash-0 -n dashbase -- bash -c "kubectl apply -f /data/ingress-web.yaml -n dashbase"
+      # update ingress-web-restauth.yaml with subdomain name
+      kubectl exec -it admindash-0 -n dashbase -- bash -c "sed -i 's|test.dashbase.io|$SUBDOMAIN|' /data/ingress-web-restauth.yaml"
+      # apply the ingress-web-restauth.yaml into K8s cluster
+      kubectl exec -it admindash-0 -n dashbase -- bash -c "kubectl apply -f /data/ingress-web-restauth.yaml -n dashbase"
+      create_ingress_rest_auth_secret
+      setup_rest_auth
     fi
     log_info "Creating ingress for admindash server with basic auth"
     create_admin_auth_secret

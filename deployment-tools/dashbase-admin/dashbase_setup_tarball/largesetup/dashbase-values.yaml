@@ -2,6 +2,8 @@ dashbase_version: nightly
 
 https: true
 
+enablePodPriority: true
+
 default_storageclass_provider:
   platform: "aws"
 
@@ -43,6 +45,7 @@ default:
 
 presto:
   enabled: false
+  priorityClassName: dashbase-normal-priority
   presto:
     prestoKeystorePassword: PRESTO_KEYSTORE_PASSWORD
     dashbaseKeystorePassword: DASHBASE_KEYSTORE_PASSWORD
@@ -54,27 +57,62 @@ ingress:
 
 etcd_cluster:
   enabled: true
-  replicas: 5
+  priorityClassName: dashbase-high-priority
+  replicas: 3
 
 filebeat:
   enabled: false
+  priorityClassName: dashbase-normal-priority
   elasticsearch_url: https://table-system:7888
 
 tables:
   LOGS:
-      replicas: 2
+    replicas: 2
 # Dashbase_Logs
 
 
 services:
   etcd:
     enabled: false
-  api:
-    enabled: true
+    priorityClassName: dashbase-high-priority
+    containerConfig:
+      resources:
+        limits:
+          cpu: 1
+          memory: 1G
+        requests:
+          cpu: 900m
+          memory: 1G
+
+  auth:
+    #AUTH_SET
+    enabled: false
+    priorityClassName: dashbase-high-priority
     environment:
+      DASHBASE_WEB_URL: https://web.test.dashbase.io
+      ENABLE_SSL: 'false'
+      INTERNAL_TOKEN: "TOKENSTRING"
+      REST_URL: http://rest-auth:9478/login/basic
+
+  api:
+    expose: false
+    enabled: true
+    priorityClassName: dashbase-high-priority
+    environment:
+      #API_ENV
       ENABLE_K8S_DISCOVERY: "true"
+    containerConfig:
+      resources:
+        limits:
+          cpu: 1
+          memory: 2G
+        requests:
+          cpu: 1
+          memory: 2G
+
   syslog:
     enabled: false
+    priorityClassName: dashbase-normal-priority
     image: dashbase/fluentd:nightly
     imagePullPolicy: Always
     environment:
@@ -85,6 +123,7 @@ services:
   web:
     expose: true
     enabled: true
+    priorityClassName: dashbase-high-priority
     secrets:
       presto-cert:
         dir: /run/prestojks/
@@ -107,13 +146,16 @@ services:
           cpu: 500m
           memory: 2G
     environment:
+      #WEB_ENV
       ENABLE_SEARCH_SCHEDULER: "true"
       ENABLE_CHRONOLOGICAL_SORT: "true"
       ENABLE_SCHEDULED_METRICS: "true"
       DISPLAY_COLOREDFIELDS: "from.sip-uri.user,to.sip-uri.user,call-id,level"
       ENABLE_CALL: "false"
       CALL_TABLES: "LOGS"
-      CALLFLOW_TYPE: "SIP"
+      #CALLFLOW_TYPE: "SIP"
+      SIP_PAGE: "false"
+      CDR_PAGE: "false"
       ENABLE_UCAAS: "false"
       ENABLE_APPS: "false"
       ENABLE_APPS_NETSAPIENS: "false"
@@ -122,21 +164,58 @@ services:
 
   prometheus:
     enabled: true
+    priorityClassName: dashbase-high-priority
    # image: "dashbase/prometheus:nightly"
     imagePullPolicy: Always
     storage:
       class: "dashbase-meta"
       size: 20Gi
+    containerConfig:
+      resources:
+        limits:
+          cpu: 1
+          memory: 2G
+        requests:
+          cpu: 1
+          memory: 2G
    # prometheus_env_variable
 
   grafana:
     enabled: true
+    priorityClassName: dashbase-high-priority
+    containerConfig:
+      resources:
+        limits:
+          cpu: 1
+          memory: 2G
+        requests:
+          cpu: 1
+          memory: 2G
   alertmanager:
     enabled: false
+    priorityClassName: dashbase-normal-priority
+    containerConfig:
+      resources:
+        limits:
+          cpu: 100m
+          memory: 0.1G
+        requests:
+          cpu: 100m
+          memory: 0.1G
   pushgateway:
     enabled: true
+    priorityClassName: dashbase-normal-priority
+    containerConfig:
+      resources:
+        limits:
+          cpu: 1
+          memory: 2G
+        requests:
+          cpu: 1
+          memory: 2G
   exporter:
     enabled: false
+    priorityClassName: dashbase-high-priority
     config:
       metrics:
         ucaas_unique_leg_count:

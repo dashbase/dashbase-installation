@@ -1,0 +1,2 @@
+      AUTH_URL: https://auth.MYDOMAIN
+      INTERNAL_TOKEN: "TOKENSTRING"

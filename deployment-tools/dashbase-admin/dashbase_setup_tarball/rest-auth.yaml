@@ -1,0 +1,116 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: dashbase
+    component: rest-auth
+  name: rest-auth
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dashbase
+      component: rest-auth
+  strategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: dashbase
+        component: rest-auth
+    spec:
+      containers:
+        - image: dashbase/rest-auth
+          name: rest-auth
+          volumeMounts:
+            - mountPath: /app/config.yml
+              name: rest-auth-config
+              readOnly: true
+              subPath: config.yml
+      volumes:
+        - configMap:
+            defaultMode: 448
+            name: rest-auth-config
+          name: rest-auth-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: dashbase
+    component: rest-auth
+  name: rest-auth
+spec:
+  ports:
+    - name: admin
+      port: 8081
+      protocol: TCP
+      targetPort: 8081
+    - name: http
+      port: 9478
+      protocol: TCP
+      targetPort: 9478
+  selector:
+    app: dashbase
+    component: rest-auth
+  type: ClusterIP
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    # cert-manager.io/issuer: letsencrypt-prod
+    ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/backend-protocol: HTTP
+  name: ingress-rest-auth
+spec:
+  rules:
+    - host: rest-auth.MYDOMAIN
+      http:
+        paths:
+          - backend:
+              serviceName: rest-auth
+              servicePort: 9478
+  tls:
+    - hosts:
+        - rest-auth.MYDOMAIN
+      secretName: ingress-rest-auth
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rest-auth-config
+data:
+  config.yml: |
+    auth:
+    <#if REST_URL?? >
+      type: rest
+      url: ${REST_URL}
+    <#else>
+      type: config
+      users:
+        BASICUSER:
+          password: BASIC_USER_PASSWORD
+          roles:
+            - basic
+        ADMINUSER:
+          password: ADMIN_USER_PASSWORD
+          roles:
+            - admin
+    </#if>
+
+    server:
+      applicationConnectors:
+          - type: http
+            port: ${PORT!9478}
+      applicationContextPath: /
+      adminContextPath: /admin
+      adminConnectors:
+          - type: http
+            port: ${ADMIN_PORT!8081}
+
+    logging:
+      level: INFO
+      appenders:
+          - type: console
