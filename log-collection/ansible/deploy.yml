@@ -16,6 +16,14 @@
     - name: "configs"
       prompt: "Enter comma separated list of filebeat configs without .yml (for example: freeswitch,syslog)"
       private: no
+    - name: "username"
+      prompt: "Enter user name (default: dashbase)"
+      default: "dashbase"
+      private: no
+    - name: "password"
+      prompt: "Enter password"
+      default: ""
+      private: yes
 
   vars:
     filebeat_version: "oss-7.6.1"

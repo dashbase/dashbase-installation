@@ -13,6 +13,14 @@
     - name: "configs"
       prompt: "Enter comma separated list of logstash input plugins which needs dependencies to install (for example: mysql)"
       private: no
+    - name: "username"
+      prompt: "Enter user name (default: dashbase)"
+      default: "dashbase"
+      private: no
+    - name: "password"
+      prompt: "Enter password"
+      default: ""
+      private: yes
 
   vars:
     logstash_version: "oss-7.6.1"
