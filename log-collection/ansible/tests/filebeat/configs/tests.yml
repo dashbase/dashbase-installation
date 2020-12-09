@@ -1,0 +1,49 @@
+- paths:
+    - /var/log/dashbase/test1*.log 
+  type: log
+  fields:
+    dashbase.test.id: test1
+    dashbase.test.expected: fail
+    _message_parser:
+      type: grok
+      pattern: '%{IPORHOST:clientip} (?: HTTP/%{NUMBER:httpversion:meta})'
+
+- paths:
+    - /var/log/dashbase/test2*.log
+  type: log
+  fields:
+    dashbase.test.id: test2
+    dashbase.test.expected: fail
+    _message_parser:
+      type: grok
+      pattern: '%{asdasda:clientip} (?:-|%{sadasdad:ident})'
+
+- paths:
+    - /var/log/dashbase/test3*.log
+  type: log
+  fields:
+    dashbase.test.id: test3
+    dashbase.test.expected: fail
+    _message_parser:
+      type: grok
+      pattern: '%{IPORHOST:clientip} (?: HTTP/%{NUMBER:httpversion:meta})'
+
+- paths:
+    - /var/log/dashbase/test4*.log
+  type: log
+  fields:
+    dashbase.test.id: test4
+    dashbase.test.expected: fail
+    _message_parser:
+      type: grok
+      pattern: '%{IPORHOST:clientip} (?:-|%{USER:ident}) (?:-|%{USER:auth}) \[%{HTTPDATE:timestamp}\] \"(?:%{WORD:verb}) %{NOTSPACE:request}(?: HTTP/%{NUMBER:httpversion:meta})'
+
+  multiline.pattern: ^.
+  multiline.negate: true
+  multiline.match: after
+  close_inactive: 90s
+  harvester_limit: 5000
+  scan_frequency: 1s
+  symlinks: true
+  clean_removed: true
+
