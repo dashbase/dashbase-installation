@@ -1,0 +1,65 @@
+#
+# /var/log/dashbase/test1.log
+# 205.85.133.66 - - [27/Nov/2020:01:52:40 +0300] "HEAD /vortals/open-source/implement HTTP/2.0" 503 42162 "https://www.globalcontent.info/real-time/recontextualize" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_0) AppleWebKit/5321 (KHTML, like Gecko) Chrome/37.0.849.0 Mobile Safari/5321"
+#
+# /var/log/dashbase/test2.log
+# 205.85.133.66 - - [27/Nov/2020:01:52:40 +0300] "HEAD /vortals/open-source/implement HTTP/2.0" 503 42162 "https://www.globalcontent.info/real-time/recontextualize" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_0) AppleWebKit/5321 (KHTML, like Gecko) Chrome/37.0.849.0 Mobile Safari/5321"
+# /var/log/dashbase/test3.log
+# 205.85.133.66 - - [27/Nov/2020:01:52:40 +0300] "HEAD /vortals/open-source/implement HTTP/2.0" 503 42162 "https://www.globalcontent.info/real-time/recontextualize" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_0) AppleWebKit/5321 (KHTML, like Gecko) Chrome/37.0.849.0 Mobile Safari/5321"
+#
+# /var/log/dashbase/test4.log
+# "57. - -  "" /dynamic/whiteboard HTTP/1.1"" 304 23278 ""http://www.dynamicleverage.org/e-commerce/channels"" ""Mozilla/5.0 (Windows NT 6.0; en-US; rv:1.9.2.20) Gecko/1947-20-08 Firefox/35.0""
+# 242.97.92.65 -  ""HEAD /clicks-and-mortar HTTP/2.0"" 405 88513 ""https://www.dynamictransparent.info/redefine"" ""Opera/9.19 (Macintosh; Intel Mac OS X 10_8_4; en-US) Presto/2.10.205 Version/12.00""
+# 251.123.44.225 -  ""GET /deliverables/visualize/supply-chains "" 404 17390 ""http://www.corporateutilize.info/robust"" ""Mozilla/5.0 (Windows NT 6.2) AppleWebKit/5320 (KHTML, like Gecko) Chrome/39.0.842.0 Mobile Safari/5320""
+# 53.218. - farrell4172  ""HEAD /monetize HTTP/"" 406 33931 ""http://www.nationalcommunities.com/vortals/relationships"" ""Mozilla/5.0 (Macintosh; Intel "
+#
+#
+- paths:
+    - /var/log/dashbase/test1*.log 
+  type: log
+  fields:
+    dashbase.test.id: test1
+    dashbase.test.expected: fail
+    _message_parser:
+      type: grok
+      pattern: '%{IPORHOST:clientip} (?: HTTP/%{NUMBER:httpversion:meta})'
+
+- paths:
+    - /var/log/dashbase/test2*.log
+  type: log
+  fields:
+    dashbase.test.id: test2
+    dashbase.test.expected: fail
+    _message_parser:
+      type: grok
+      pattern: '%{asdasda:clientip} (?:-|%{sadasdad:ident})'
+
+- paths:
+    - /var/log/dashbase/test3*.log
+  type: log
+  fields:
+    dashbase.test.id: test3
+    dashbase.test.expected: fail
+    _message_parser:
+      type: grok
+      pattern: '%{IPORHOST:clientip} (?: HTTP/%{NUMBER:httpversion:meta})'
+
+- paths:
+    - /var/log/dashbase/test4*.log
+  type: log
+  fields:
+    dashbase.test.id: test4
+    dashbase.test.expected: fail
+    _message_parser:
+      type: grok
+      pattern: '%{IPORHOST:clientip} (?:-|%{USER:ident}) (?:-|%{USER:auth}) \[%{HTTPDATE:timestamp}\] \"(?:%{WORD:verb}) %{NOTSPACE:request}(?: HTTP/%{NUMBER:httpversion:meta})'
+
+  multiline.pattern: ^.
+  multiline.negate: true
+  multiline.match: after
+  close_inactive: 90s
+  harvester_limit: 5000
+  scan_frequency: 1s
+  symlinks: true
+  clean_removed: true
+
