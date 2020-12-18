@@ -28,6 +28,7 @@ default:
       RETENTION_SIZE_GB: "8"
       READER_CACHE_MEM_PERCENT: "60"
       NUM_INDEXING_THREADS: "2"
+      INTERNAL_TOKEN: "TOKENSTRING"
 
 presto:
   enabled: false
