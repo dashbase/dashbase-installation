@@ -836,7 +836,7 @@ download_dashbase() {
 create_internal_token() {
   # create 32 bits internal token
   kubectl exec -it admindash-0 -n dashbase -- bash -c "cat /dev/urandom | tr -dc 'a-z-0-9' | fold -w 32 | head -n 1 > /data/TOKEN-STRING"
-  TOKEN=$(kubectl exec -it admindash-0 -n dashbase -- bash -c "cat /data/TOKEN-STRING")
+  TOKEN=$(kubectl exec -it admindash-0 -n dashbase -- bash -c "cat -v /data/TOKEN-STRING | sed -e 's/\^M//' ")
   log_info "created internal token is $TOKEN"
 
   # update dashbase-values.yaml file
@@ -984,6 +984,7 @@ update_dashbase_valuefile() {
     kubectl exec -it admindash-0 -n dashbase -- bash -c "cd /data ; /data/configure_presto.sh"
   fi
 
+
   # update prometheus image version
   if [[ "$VERSION" == *"nightly"* ]]; then
     log_info "dashbase nightly version is used, update prometheus image to use nightly version"
@@ -1000,14 +1001,14 @@ update_dashbase_valuefile() {
     echo "username: \"$USERNAME\"" > dashbase-license.txt
     echo "license: \"$LICENSE\"" >> dashbase-license.txt
     kubectl cp dashbase-license.txt dashbase/admindash-0:/data/
-    kubectl exec -it admindash-0 -n dashbase -- bash -c "cat /data/dashbase-license.txt >> /data/dashbase-values.yaml"
+    kubectl exec -it admindash-0 -n dashbase -- bash -c "cat -v /data/dashbase-license.txt | sed -e 's/\^M//' >> /data/dashbase-values.yaml"
     kubectl exec -it admindash-0 -n dashbase -- bash -c "rm -rf dash-lapp-1.0.0-rc9.jar"
   else
     log_info "update default dashbase-values.yaml file with entered license information"
     echo "username: \"$USERNAME\"" > dashbase-license.txt
     echo "license: \"$LICENSE\"" >> dashbase-license.txt
     kubectl cp dashbase-license.txt dashbase/admindash-0:/data/
-    kubectl exec -it admindash-0 -n dashbase -- bash -c "cat /data/dashbase-license.txt >> /data/dashbase-values.yaml"
+    kubectl exec -it admindash-0 -n dashbase -- bash -c "cat -v /data/dashbase-license.txt | sed -e 's/\^M//' >> /data/dashbase-values.yaml"
   fi
 
 }
