@@ -978,9 +978,11 @@ update_dashbase_valuefile() {
       fi
     fi
   fi
-  # update keystore passwords for both dashbase and presto
-  log_info "update dashbase and presto keystore password in dashbase-values.yaml"
-  kubectl exec -it admindash-0 -n dashbase -- bash -c "cd /data ; /data/configure_presto.sh"
+  # update dashbase and presto keystore passwords in presto configuration
+  if [ "$PRESTO_FLAG" == "true" ]; then
+    log_info "update dashbase and presto keystore password in dashbase-values.yaml"
+    kubectl exec -it admindash-0 -n dashbase -- bash -c "cd /data ; /data/configure_presto.sh"
+  fi
 
   # update prometheus image version
   if [[ "$VERSION" == *"nightly"* ]]; then
@@ -1025,16 +1027,17 @@ create_sslcert() {
   fi
 
   # create presto SSL cert
-  log_info "setup presto internal SSL cert, key, keystore, keystore password"
-  #kubectl exec -it admindash-0 -n dashbase -- bash -c "chmod a+x /data/https_presto2.sh"
-  kubectl exec -it admindash-0 -n dashbase -- bash -c "cd /data ; /data/https_presto2.sh"
-  kubectl exec -it admindash-0 -n dashbase -- bash -c "kubectl apply -f /data/https-presto.yaml -n dashbase"
-  kubectl get secrets -n dashbase | grep -E 'presto-cert|presto-key'
-  CHKPSECRETS=$(kubectl get secrets -n dashbase | grep -c 'presto')
-  if [ "$CHKPSECRETS" -eq "4" ]; then
-    log_info "presto SSL cert, key, keystore and keystore password are created"
-  else
-    log_fatal "Error to create presto SSL cert, key, keystore, and keystore password"
+  if [ "$PRESTO_FLAG" == "true" ]; then
+    log_info "setup presto internal SSL cert, key, keystore, keystore password"
+     kubectl exec -it admindash-0 -n dashbase -- bash -c "cd /data ; /data/https_presto2.sh"
+     kubectl exec -it admindash-0 -n dashbase -- bash -c "kubectl apply -f /data/https-presto.yaml -n dashbase"
+     kubectl get secrets -n dashbase | grep -E 'presto-cert|presto-key'
+     CHKPSECRETS=$(kubectl get secrets -n dashbase | grep -c 'presto')
+     if [ "$CHKPSECRETS" -eq "4" ]; then
+       log_info "presto SSL cert, key, keystore and keystore password are created"
+     else
+       log_fatal "Error to create presto SSL cert, key, keystore, and keystore password"
+     fi
   fi
 }
 
