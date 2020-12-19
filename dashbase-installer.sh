@@ -836,7 +836,7 @@ download_dashbase() {
 create_internal_token() {
   # create 32 bits internal token
   kubectl exec -it admindash-0 -n dashbase -- bash -c "cat /dev/urandom | tr -dc 'a-z-0-9' | fold -w 32 | head -n 1 > /data/TOKEN-STRING"
-  TOKEN=$(kubectl exec -it admindash-0 -n dashbase -- bash -c "cat -v /data/TOKEN-STRING | sed -e 's/\^M//' ")
+  TOKEN=$(kubectl exec -it admindash-0 -n dashbase -- bash -c "cat -v /data/TOKEN-STRING | tr -d '\n'")
   log_info "created internal token is $TOKEN"
 
   # update dashbase-values.yaml file
