@@ -836,7 +836,7 @@ download_dashbase() {
 create_internal_token() {
   # create 32 bits internal token
   kubectl exec -it admindash-0 -n dashbase -- bash -c "cat /dev/urandom | tr -dc 'a-z-0-9' | fold -w 32 | head -n 1 > /data/TOKEN-STRING"
-  TOKEN=$(kubectl exec -it admindash-0 -n dashbase -- bash -c "cat /data/TOKEN-STRING")
+  TOKEN=$(kubectl exec -it admindash-0 -n dashbase -- bash -c "cat -v /data/TOKEN-STRING | tr -d '\n'")
   log_info "created internal token is $TOKEN"
 
   # update dashbase-values.yaml file
@@ -978,9 +978,12 @@ update_dashbase_valuefile() {
       fi
     fi
   fi
-  # update keystore passwords for both dashbase and presto
-  log_info "update dashbase and presto keystore password in dashbase-values.yaml"
-  kubectl exec -it admindash-0 -n dashbase -- bash -c "cd /data ; /data/configure_presto.sh"
+  # update dashbase and presto keystore passwords in presto configuration
+  if [ "$PRESTO_FLAG" == "true" ]; then
+    log_info "update dashbase and presto keystore password in dashbase-values.yaml"
+    kubectl exec -it admindash-0 -n dashbase -- bash -c "cd /data ; /data/configure_presto.sh"
+  fi
+
 
   # update prometheus image version
   if [[ "$VERSION" == *"nightly"* ]]; then
@@ -998,14 +1001,14 @@ update_dashbase_valuefile() {
     echo "username: \"$USERNAME\"" > dashbase-license.txt
     echo "license: \"$LICENSE\"" >> dashbase-license.txt
     kubectl cp dashbase-license.txt dashbase/admindash-0:/data/
-    kubectl exec -it admindash-0 -n dashbase -- bash -c "cat /data/dashbase-license.txt >> /data/dashbase-values.yaml"
+    kubectl exec -it admindash-0 -n dashbase -- bash -c "cat -v /data/dashbase-license.txt | sed -e 's/\^M//' >> /data/dashbase-values.yaml"
     kubectl exec -it admindash-0 -n dashbase -- bash -c "rm -rf dash-lapp-1.0.0-rc9.jar"
   else
     log_info "update default dashbase-values.yaml file with entered license information"
     echo "username: \"$USERNAME\"" > dashbase-license.txt
     echo "license: \"$LICENSE\"" >> dashbase-license.txt
     kubectl cp dashbase-license.txt dashbase/admindash-0:/data/
-    kubectl exec -it admindash-0 -n dashbase -- bash -c "cat /data/dashbase-license.txt >> /data/dashbase-values.yaml"
+    kubectl exec -it admindash-0 -n dashbase -- bash -c "cat -v /data/dashbase-license.txt | sed -e 's/\^M//' >> /data/dashbase-values.yaml"
   fi
 
 }
@@ -1025,16 +1028,17 @@ create_sslcert() {
   fi
 
   # create presto SSL cert
-  log_info "setup presto internal SSL cert, key, keystore, keystore password"
-  #kubectl exec -it admindash-0 -n dashbase -- bash -c "chmod a+x /data/https_presto2.sh"
-  kubectl exec -it admindash-0 -n dashbase -- bash -c "cd /data ; /data/https_presto2.sh"
-  kubectl exec -it admindash-0 -n dashbase -- bash -c "kubectl apply -f /data/https-presto.yaml -n dashbase"
-  kubectl get secrets -n dashbase | grep -E 'presto-cert|presto-key'
-  CHKPSECRETS=$(kubectl get secrets -n dashbase | grep -c 'presto')
-  if [ "$CHKPSECRETS" -eq "4" ]; then
-    log_info "presto SSL cert, key, keystore and keystore password are created"
-  else
-    log_fatal "Error to create presto SSL cert, key, keystore, and keystore password"
+  if [ "$PRESTO_FLAG" == "true" ]; then
+    log_info "setup presto internal SSL cert, key, keystore, keystore password"
+     kubectl exec -it admindash-0 -n dashbase -- bash -c "cd /data ; /data/https_presto2.sh"
+     kubectl exec -it admindash-0 -n dashbase -- bash -c "kubectl apply -f /data/https-presto.yaml -n dashbase"
+     kubectl get secrets -n dashbase | grep -E 'presto-cert|presto-key'
+     CHKPSECRETS=$(kubectl get secrets -n dashbase | grep -c 'presto')
+     if [ "$CHKPSECRETS" -eq "4" ]; then
+       log_info "presto SSL cert, key, keystore and keystore password are created"
+     else
+       log_fatal "Error to create presto SSL cert, key, keystore, and keystore password"
+     fi
   fi
 }
 

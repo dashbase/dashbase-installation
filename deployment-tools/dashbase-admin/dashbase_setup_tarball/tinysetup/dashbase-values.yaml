@@ -33,6 +33,7 @@ default:
       RETENTION_SIZE_GB: "850"
       READER_CACHE_MEM_PERCENT: "60"
       NUM_INDEXING_THREADS: "1"
+      INTERNAL_TOKEN: "TOKENSTRING"
 
 ingress:
   enabled: true
