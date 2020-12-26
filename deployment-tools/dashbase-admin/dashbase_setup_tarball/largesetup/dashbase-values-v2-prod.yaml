@@ -81,11 +81,21 @@ filebeat:
       role: core
   elasticsearch_url: https://table-system:7888
 
+metrics-server:
+  enabled: false
+
+vertical-pod-autoscaler:
+  enabled: false
+
 # V1_tables
 
 tablesv2:
   LOGS:
     table_manager:
+      memoryAutoScaler:
+        enabled: false
+        min: MINMEMTBLMAN
+        max: MAXMEMTBLMAN
       priorityClassName: dashbase-high-priority
       podConfig:
         nodeSelector:
@@ -105,6 +115,8 @@ tablesv2:
         nodeSelector:
           role: backend
       replicas: 1
+      horizontalpodautoscaler:
+        enabled: false
       containerConfig:
         resources:
           requests:

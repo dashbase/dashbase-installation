@@ -52,16 +52,28 @@ filebeat:
   priorityClassName: dashbase-normal-priority
   elasticsearch_url: https://table-system:7888
 
+metrics-server:
+  enabled: false
+
+vertical-pod-autoscaler:
+  enabled: false
+
 # V1_tables
 
 tablesv2:
   LOGS:
     table_manager:
+      memoryAutoScaler:
+        enabled: false
+        min: MINMEMTBLMAN
+        max: MAXMEMTBLMAN
       priorityClassName: dashbase-high-priority
       replicas: 1
     indexer:
       priorityClassName: dashbase-high-priority
       replicas: 1
+      horizontalpodautoscaler:
+        enabled: false
       containerConfig:
         resources:
           requests:

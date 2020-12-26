@@ -26,13 +26,16 @@ PROD_FLAG="false"
 TABLENAME="logs"
 CALL_FLOW_CDR_FLAG="false"
 CALL_FLOW_SIP_FLAG="false"
-#CALL_FLOW_NET_FLAG="false"
 DEMO_FLAG="false"
 WEBRTC_FLAG="false"
 SYSTEM_LOG="false"
 SYSLOG_FLAG="false"
 CLUSTERTYPE="large"
 MIRROR_FLAG="false"
+HPA_FLAG="false"
+VPA_FLAG="false"
+VPA_TBL_MINMEM="1G"
+VPA_TBL_MAXMEM="10G"
 
 echo "Installer script version is $INSTALLER_VERSION"
 
@@ -100,6 +103,14 @@ display_help() {
   echo "                        e.g. --storage_key=MYSTORAGEACCOUNTACCESSKEY"
   echo "     --storage_endpoint cloud object endpoint url. (currently only available in aliyun platform)"
   echo "                        e.g. --storage_endpoint=https://oss-cn-hangzhou.aliyuncs.com"
+  echo "     --hpa              enable horizontal autoscaler for indexer"
+  echo "                        e.g. --hpa"
+  echo "     --vpa              enable vertical autoscaler for table-manager on memory resource"
+  echo "                        e.g. --vpa"
+  echo "     --vpa_min          enable table-manager vertical autoscaler, and set min memory value"
+  echo "                        e.g. --vpa_min=2G"
+  echo "     --vpa_max          enable table-manager vertical autoscaler, and set max memory value"
+  echo "                        e.g. --vpa_max=10G"
   echo ""
   echo "   Command example in V1"
   echo "   ./dashbase-installer.sh --platform=aws --ingress --subdomain=test.dashbase.io \ "
@@ -262,6 +273,20 @@ while [[ $# -gt 0 ]]; do
     ;;
   --mirror)
     MIRROR_FLAG="true"
+    ;;
+  --hpa)
+    HPA_FLAG="true"
+    ;;
+  --vpa)
+    VPA_FLAG="true"
+    ;;
+  --vpa_min)
+    fail_if_empty "$PARAM" "$VALUE"
+    VPA_TBL_MINMEM=$VALUE
+    ;;
+  --vpa_max)
+    fail_if_empty "$PARAM" "$VALUE"
+    VPA_TBL_MAXMEM=$VALUE
     ;;
   *)
     log_fatal "Unknown parameter ($PARAM) with ${VALUE:-no value}"
@@ -976,6 +1001,20 @@ update_dashbase_valuefile() {
       if [ "$STORAGE_ENDPOINT" != "undefined" ]; then
         kubectl exec -it admindash-0 -n dashbase -- sed -i "s|https://oss-accelerate.aliyuncs.com|$STORAGE_ENDPOINT|" /data/dashbase-values.yaml
       fi
+    fi
+    # update V2 table-manager VPA
+    if [ "$VPA_FLAG" == "true" ]; then
+       log_info "enable VPA in this K8s cluster"
+       kubectl exec -it admindash-0 -n dashbase -- sed -i '/metrics-server\:/!b;n;c\ \ enabled\:\ true' /data/dashbase-values.yaml
+       kubectl exec -it admindash-0 -n dashbase -- sed -i '/vertical-pod-autoscaler\:/!b;n;c\ \ enabled\:\ true' /data/dashbase-values.yaml
+       kubectl exec -it admindash-0 -n dashbase -- sed -i '/memoryAutoScaler\:/!b;n;c\ \ \ \ \ \ \ \ enabled\: true' /data/dashbase-values.yaml
+    fi
+    kubectl exec -it admindash-0 -n dashbase -- sed -i "s|MINMEMTBLMAN|$VPA_TBL_MINMEM|" /data/dashbase-values.yaml
+    kubectl exec -it admindash-0 -n dashbase -- sed -i "s|MAXMEMTBLMAN|$VPA_TBL_MAXMEM|" /data/dashbase-values.yaml
+    # update V2 indexer to use HPA
+    if [ "$HPA_FLAG" == "true" ]; then
+      log_info "enable HPA for indexers"
+      kubectl exec -it admindash-0 -n dashbase -- sed -i '/horizontalpodautoscaler\:/!b;n;c\ \ \ \ \ \ \ \ enabled\: true' /data/dashbase-values.yaml
     fi
   fi
   # update dashbase and presto keystore passwords in presto configuration

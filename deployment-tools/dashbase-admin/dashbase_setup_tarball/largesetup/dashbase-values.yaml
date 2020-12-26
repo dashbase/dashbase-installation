@@ -71,7 +71,6 @@ tables:
     replicas: 2
 # Dashbase_Logs
 
-
 services:
   etcd:
     enabled: false
