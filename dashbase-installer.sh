@@ -36,6 +36,7 @@ HPA_FLAG="false"
 VPA_FLAG="false"
 VPA_TBL_MINMEM="1G"
 VPA_TBL_MAXMEM="10G"
+INGRESS_TABLE="false"
 
 echo "Installer script version is $INSTALLER_VERSION"
 
@@ -46,6 +47,9 @@ display_help() {
   echo "     --platform     aws/azure/gce/aliyun  e.g. --platform=aws"
   echo "     --version      dashbase version e.g. --version=1.3.2"
   echo "     --ingress      exposed dashbase services using ingress controller  e.g. --ingress"
+  echo "     --ingresstable enable table endpoints expose in dedicated nginx ingress controller"
+  echo "                    ingresstable flag need to be used together with ingress flag"
+  echo "                    e.g.  --ingresstable"
   echo "     --subdomain    use together with ingress option e.g.  --subdomain=test.dashbase.io"
   echo "     --username     dashbase license username e.g. --username=myname"
   echo "     --license      dashbase license string  e.g. --license=my_license_string"
@@ -249,6 +253,9 @@ while [[ $# -gt 0 ]]; do
     ;;
   --ingress)
     INGRESS_FLAG="true"
+    ;;
+  --ingresstable)
+    INGRESS_TABLE="true"
     ;;
   --exposemon)
     EXPOSEMON="--exposemon"
@@ -1023,11 +1030,16 @@ update_dashbase_valuefile() {
     kubectl exec -it admindash-0 -n dashbase -- bash -c "cd /data ; /data/configure_presto.sh"
   fi
 
-
   # update prometheus image version
   if [[ "$VERSION" == *"nightly"* ]]; then
     log_info "dashbase nightly version is used, update prometheus image to use nightly version"
     kubectl exec -it admindash-0 -n dashbase -- sed -i '/\# image\: \"dashbase\/prometheus\:nightly\"/a\ \ \ \ image\: dashbase\/prometheus\:nightly' /data/dashbase-values.yaml
+  fi
+
+  # update ingress table for dedicated table's nginx ingress controller
+  if [ "$INGRESS_TABLE" == "true" ]; then
+    kubectl exec -it admindash-0  -n dashbase -- sed -i 's/includetable:\ true/includetable\:\ false/' /data/dashbase-values.yaml
+    kubectl exec -it admindash-0  -n dashbase -- sed -i 's/ingresstable:\ false/ingresstable\:\ true/' /data/dashbase-values.yaml
   fi
 
   # update dashbase license information
@@ -1168,6 +1180,11 @@ expose_ingress_endpoints() {
       kubectl exec -it admindash-0 -n dashbase -- bash -c "kubectl apply -f /data/ingress-web-restauth.yaml -n dashbase"
       create_ingress_rest_auth_secret
       setup_rest_auth
+    fi
+    if [ "$INGRESS_TABLE" == "true" ]; then
+      log_info "Table ingress rule use dedicated nginx ingress controller"
+      log_info "The dedicated table nginx ingress controller use class namme nginx-table"
+      helm install nginx-ingress-table stable/nginx-ingress --set controller.ingressClass=nginx-table --set controller.useIngressClassOnly=true --namespace dashbase
     fi
     log_info "Creating ingress for admindash server with basic auth"
     create_admin_auth_secret

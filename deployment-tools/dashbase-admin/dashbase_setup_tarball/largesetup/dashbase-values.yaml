@@ -54,6 +54,8 @@ presto:
 ingress:
   enabled: true
   certmanager: false
+  includetable: true
+  ingresstable: false
   host: test.dashbase.io
 
 etcd_cluster:
