@@ -913,6 +913,8 @@ update_dashbase_valuefile() {
      log_info "enabling presto and updating dashbase-values.yaml file"
      kubectl exec -it admindash-0 -n dashbase -- sed -i '/^presto\:/{n;d}' /data/dashbase-values.yaml
      kubectl exec -it admindash-0 -n dashbase -- sed -i '/^presto\:/a \ \ enabled\:\ true' /data/dashbase-values.yaml
+     # Add presto secrets in web pod
+     kubectl exec -it admindash-0 -n dashbase -- bash -c "sed -i '/\#PRESTO\_SECRETS/ r /data/presto_secrets.yaml' /data/dashbase-values.yaml"
   fi
   # update basic auth
   if [ "$BASIC_AUTH" == "true" ]; then
