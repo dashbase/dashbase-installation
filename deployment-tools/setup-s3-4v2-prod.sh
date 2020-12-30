@@ -87,10 +87,9 @@ check_ostype() {
   if [[ $OSTYPE == *"darwin"* ]]; then
     WKOSTYPE="mac"
     log_fatal "Dedected current workstation is a $WKOSTYPE, this script only tested on linux"
-    WKOSTYPE="mac"
   elif [[ $OSTYPE == *"linux"* ]]; then
-    log_info "Dedected current workstation is a $WKOSTYPE"
     WKOSTYPE="linux"
+    log_info "Dedected current workstation is a $WKOSTYPE"
   else
     log_fatal "This script is only tested on linux; and fail to detect the current worksattion os type"
   fi

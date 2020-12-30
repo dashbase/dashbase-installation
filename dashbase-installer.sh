@@ -1186,7 +1186,7 @@ expose_ingress_endpoints() {
     if [ "$INGRESS_TABLE" == "true" ]; then
       log_info "Table ingress rule use dedicated nginx ingress controller"
       log_info "The dedicated table nginx ingress controller use class namme nginx-table"
-      helm install nginx-ingress-table stable/nginx-ingress --set controller.ingressClass=nginx-table --set controller.useIngressClassOnly=true --namespace dashbase
+      kubectl exec -it admindash-0 -n dashbase -- bash -c "helm install nginx-ingress-table stable/nginx-ingress --set controller.ingressClass=nginx-table --set controller.useIngressClassOnly=true --namespace dashbase --version 1.41.3"
     fi
     log_info "Creating ingress for admindash server with basic auth"
     create_admin_auth_secret

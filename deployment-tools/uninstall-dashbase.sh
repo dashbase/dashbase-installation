@@ -212,7 +212,6 @@ remove_dashbase_via_admindash_helm3() {
   done
 }
 
-
 remove_ingress_via_helm() {
   # check if nginx is deployed , if yes delete it; and timeout after 8 minutes
   while [ "$(helm ls |grep dashbase |grep -c nginx)" -eq "1" ] && [ $SECONDS -lt 480 ]; do
@@ -355,6 +354,20 @@ remove_etcd_cluster() {
   fi
 }
 
+remove_vpa_dep_objects() {
+  # delete vpa related objects e.g. CRD and webhook
+  if [ "$(kubectl get mutatingwebhookconfiguration |grep -c vpa)" -gt "0" ]; then
+    log_info "mutatingwebhookconfiguration vpa-webhook-config exists"
+    log_info "delete mutatingwebhookconfiguration vpa-webhook-config"
+    kubectl delete mutatingwebhookconfiguration vpa-webhook-config
+  fi
+  if [ "$(kubectl get crd |grep -c vertical)" -gt "0" ]; then
+    log_info "VPA related CRD exists"
+    kubectl delete crd verticalpodautoscalers.autoscaling.k8s.io
+    kubectl delete crd verticalpodautoscalercheckpoints.autoscaling.k8s.io
+  fi
+}
+
 remove_combo() {
     # delete demo setup
     remove_demo_setup
@@ -414,6 +427,7 @@ if [ "$(kubectl get namespace |grep -c dashbase)" -eq "1" ]; then
         log_info "delete admin pod dashadmin-0"
         kubectl delete sts/admindash -n dashbase
         remove_combo
+        remove_vpa_dep_objects
 
      # check if helm command exists in local workstation
      elif [ "$(command -v helm)" ]; then
@@ -423,6 +437,7 @@ if [ "$(kubectl get namespace |grep -c dashbase)" -eq "1" ]; then
         remove_release_via_helm
         sleep 10
         remove_combo
+        remove_vpa_dep_objects
      else
         log_fatal "helm tiller is deployed but either no admindash pod or local helm command to check any resource deployed via helm"
     fi
@@ -447,6 +462,7 @@ if [ "$(kubectl get namespace |grep -c dashbase)" -eq "1" ]; then
     fi
     sleep 10
     remove_combo
+    remove_vpa_dep_objects
   fi
 else
   log_info "No dashbase namespace is found in this K8s cluster"
@@ -455,5 +471,6 @@ else
   remove_clusterrolebindings
   remove_cluster_role
   remove_sa_tiller
+  remove_vpa_dep_objects
 fi
 
