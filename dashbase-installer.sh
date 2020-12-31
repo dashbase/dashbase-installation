@@ -26,13 +26,17 @@ PROD_FLAG="false"
 TABLENAME="logs"
 CALL_FLOW_CDR_FLAG="false"
 CALL_FLOW_SIP_FLAG="false"
-#CALL_FLOW_NET_FLAG="false"
 DEMO_FLAG="false"
 WEBRTC_FLAG="false"
 SYSTEM_LOG="false"
 SYSLOG_FLAG="false"
 CLUSTERTYPE="large"
 MIRROR_FLAG="false"
+HPA_FLAG="false"
+VPA_FLAG="false"
+VPA_TBL_MINMEM="1G"
+VPA_TBL_MAXMEM="10G"
+INGRESS_TABLE="false"
 
 echo "Installer script version is $INSTALLER_VERSION"
 
@@ -43,6 +47,9 @@ display_help() {
   echo "     --platform     aws/azure/gce/aliyun  e.g. --platform=aws"
   echo "     --version      dashbase version e.g. --version=1.3.2"
   echo "     --ingress      exposed dashbase services using ingress controller  e.g. --ingress"
+  echo "     --ingresstable enable table endpoints expose in dedicated nginx ingress controller"
+  echo "                    ingresstable flag need to be used together with ingress flag"
+  echo "                    e.g.  --ingresstable"
   echo "     --subdomain    use together with ingress option e.g.  --subdomain=test.dashbase.io"
   echo "     --username     dashbase license username e.g. --username=myname"
   echo "     --license      dashbase license string  e.g. --license=my_license_string"
@@ -100,6 +107,14 @@ display_help() {
   echo "                        e.g. --storage_key=MYSTORAGEACCOUNTACCESSKEY"
   echo "     --storage_endpoint cloud object endpoint url. (currently only available in aliyun platform)"
   echo "                        e.g. --storage_endpoint=https://oss-cn-hangzhou.aliyuncs.com"
+  echo "     --hpa              enable horizontal autoscaler for indexer"
+  echo "                        e.g. --hpa"
+  echo "     --vpa              enable vertical autoscaler for table-manager on memory resource"
+  echo "                        e.g. --vpa"
+  echo "     --vpa_min          enable table-manager vertical autoscaler, and set min memory value"
+  echo "                        e.g. --vpa_min=2G"
+  echo "     --vpa_max          enable table-manager vertical autoscaler, and set max memory value"
+  echo "                        e.g. --vpa_max=10G"
   echo ""
   echo "   Command example in V1"
   echo "   ./dashbase-installer.sh --platform=aws --ingress --subdomain=test.dashbase.io \ "
@@ -239,6 +254,9 @@ while [[ $# -gt 0 ]]; do
   --ingress)
     INGRESS_FLAG="true"
     ;;
+  --ingresstable)
+    INGRESS_TABLE="true"
+    ;;
   --exposemon)
     EXPOSEMON="--exposemon"
     ;;
@@ -262,6 +280,20 @@ while [[ $# -gt 0 ]]; do
     ;;
   --mirror)
     MIRROR_FLAG="true"
+    ;;
+  --hpa)
+    HPA_FLAG="true"
+    ;;
+  --vpa)
+    VPA_FLAG="true"
+    ;;
+  --vpa_min)
+    fail_if_empty "$PARAM" "$VALUE"
+    VPA_TBL_MINMEM=$VALUE
+    ;;
+  --vpa_max)
+    fail_if_empty "$PARAM" "$VALUE"
+    VPA_TBL_MAXMEM=$VALUE
     ;;
   *)
     log_fatal "Unknown parameter ($PARAM) with ${VALUE:-no value}"
@@ -881,6 +913,8 @@ update_dashbase_valuefile() {
      log_info "enabling presto and updating dashbase-values.yaml file"
      kubectl exec -it admindash-0 -n dashbase -- sed -i '/^presto\:/{n;d}' /data/dashbase-values.yaml
      kubectl exec -it admindash-0 -n dashbase -- sed -i '/^presto\:/a \ \ enabled\:\ true' /data/dashbase-values.yaml
+     # Add presto secrets in web pod
+     kubectl exec -it admindash-0 -n dashbase -- bash -c "sed -i '/\#PRESTO\_SECRETS/ r /data/presto_secrets.yaml' /data/dashbase-values.yaml"
   fi
   # update basic auth
   if [ "$BASIC_AUTH" == "true" ]; then
@@ -977,6 +1011,20 @@ update_dashbase_valuefile() {
         kubectl exec -it admindash-0 -n dashbase -- sed -i "s|https://oss-accelerate.aliyuncs.com|$STORAGE_ENDPOINT|" /data/dashbase-values.yaml
       fi
     fi
+    # update V2 table-manager VPA
+    if [ "$VPA_FLAG" == "true" ]; then
+       log_info "enable VPA in this K8s cluster"
+       kubectl exec -it admindash-0 -n dashbase -- sed -i '/metrics-server\:/!b;n;c\ \ enabled\:\ true' /data/dashbase-values.yaml
+       kubectl exec -it admindash-0 -n dashbase -- sed -i '/vertical-pod-autoscaler\:/!b;n;c\ \ enabled\:\ true' /data/dashbase-values.yaml
+       kubectl exec -it admindash-0 -n dashbase -- sed -i '/memoryAutoScaler\:/!b;n;c\ \ \ \ \ \ \ \ enabled\: true' /data/dashbase-values.yaml
+    fi
+    kubectl exec -it admindash-0 -n dashbase -- sed -i "s|MINMEMTBLMAN|$VPA_TBL_MINMEM|" /data/dashbase-values.yaml
+    kubectl exec -it admindash-0 -n dashbase -- sed -i "s|MAXMEMTBLMAN|$VPA_TBL_MAXMEM|" /data/dashbase-values.yaml
+    # update V2 indexer to use HPA
+    if [ "$HPA_FLAG" == "true" ]; then
+      log_info "enable HPA for indexers"
+      kubectl exec -it admindash-0 -n dashbase -- sed -i '/horizontalpodautoscaler\:/!b;n;c\ \ \ \ \ \ \ \ enabled\: true' /data/dashbase-values.yaml
+    fi
   fi
   # update dashbase and presto keystore passwords in presto configuration
   if [ "$PRESTO_FLAG" == "true" ]; then
@@ -984,11 +1032,16 @@ update_dashbase_valuefile() {
     kubectl exec -it admindash-0 -n dashbase -- bash -c "cd /data ; /data/configure_presto.sh"
   fi
 
-
   # update prometheus image version
   if [[ "$VERSION" == *"nightly"* ]]; then
     log_info "dashbase nightly version is used, update prometheus image to use nightly version"
     kubectl exec -it admindash-0 -n dashbase -- sed -i '/\# image\: \"dashbase\/prometheus\:nightly\"/a\ \ \ \ image\: dashbase\/prometheus\:nightly' /data/dashbase-values.yaml
+  fi
+
+  # update ingress table for dedicated table's nginx ingress controller
+  if [ "$INGRESS_TABLE" == "true" ]; then
+    kubectl exec -it admindash-0  -n dashbase -- sed -i 's/includetable:\ true/includetable\:\ false/' /data/dashbase-values.yaml
+    kubectl exec -it admindash-0  -n dashbase -- sed -i 's/ingresstable:\ false/ingresstable\:\ true/' /data/dashbase-values.yaml
   fi
 
   # update dashbase license information
@@ -1129,6 +1182,11 @@ expose_ingress_endpoints() {
       kubectl exec -it admindash-0 -n dashbase -- bash -c "kubectl apply -f /data/ingress-web-restauth.yaml -n dashbase"
       create_ingress_rest_auth_secret
       setup_rest_auth
+    fi
+    if [ "$INGRESS_TABLE" == "true" ]; then
+      log_info "Table ingress rule use dedicated nginx ingress controller"
+      log_info "The dedicated table nginx ingress controller use class namme nginx-table"
+      kubectl exec -it admindash-0 -n dashbase -- bash -c "helm install nginx-ingress-table stable/nginx-ingress --set controller.ingressClass=nginx-table --set controller.useIngressClassOnly=true --namespace dashbase --version 1.41.3"
     fi
     log_info "Creating ingress for admindash server with basic auth"
     create_admin_auth_secret

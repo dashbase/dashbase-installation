@@ -54,6 +54,8 @@ presto:
 ingress:
   enabled: true
   certmanager: false
+  includetable: true
+  ingresstable: false
   host: test.dashbase.io
 
 etcd_cluster:
@@ -70,7 +72,6 @@ tables:
   LOGS:
     replicas: 2
 # Dashbase_Logs
-
 
 services:
   etcd:
@@ -125,19 +126,7 @@ services:
     expose: true
     enabled: true
     priorityClassName: dashbase-high-priority
-    secrets:
-      presto-cert:
-        dir: /run/prestojks/
-        file: presto-cert.pem
-      presto-key:
-        dir: /run/prestojks/
-        file: presto-key.pem
-      presto-keystore:
-        dir: /run/prestojks/
-        file: presto-keystore
-      presto-keystore-password:
-        dir: /run/prestojks/
-        file: presto-keystore-password
+    #PRESTO_SECRETS
     containerConfig:
       resources:
         limits:

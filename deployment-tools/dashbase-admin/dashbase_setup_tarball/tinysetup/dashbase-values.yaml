@@ -85,19 +85,7 @@ services:
   web:
     expose: true
     enabled: true
-    secrets:
-      presto-cert:
-        dir: /run/prestojks/
-        file: presto-cert.pem
-      presto-key:
-        dir: /run/prestojks/
-        file: presto-key.pem
-      presto-keystore:
-        dir: /run/prestojks/
-        file: presto-keystore
-      presto-keystore-password:
-        dir: /run/prestojks/
-        file: presto-keystore-password
+    #PRESTO_SECRETS
 #    containerConfig:
 #      resources:
 #        limits:
@@ -107,13 +95,16 @@ services:
 #          cpu: 500m
 #          memory: 2G
     environment:
+      #WEB_ENV
       ENABLE_SEARCH_SCHEDULER: "true"
       ENABLE_CHRONOLOGICAL_SORT: "true"
       ENABLE_SCHEDULED_METRICS: "true"
       DISPLAY_COLOREDFIELDS: "from.sip-uri.user,to.sip-uri.user,call-id,level"
       ENABLE_CALL: "false"
       CALL_TABLES: "LOGS"
-      CALLFLOW_TYPE: "SIP"
+      #CALLFLOW_TYPE: "SIP"
+      SIP_PAGE: "false"
+      CDR_PAGE: "false"
       ENABLE_UCAAS: "false"
       ENABLE_APPS: "false"
       ENABLE_APPS_NETSAPIENS: "false"

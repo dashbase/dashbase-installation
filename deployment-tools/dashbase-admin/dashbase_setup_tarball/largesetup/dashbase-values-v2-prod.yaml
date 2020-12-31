@@ -63,6 +63,8 @@ presto:
 ingress:
   enabled: true
   certmanager: false
+  includetable: true
+  ingresstable: false
   host: test.dashbase.io
 
 etcd_cluster:
@@ -81,11 +83,21 @@ filebeat:
       role: core
   elasticsearch_url: https://table-system:7888
 
+metrics-server:
+  enabled: false
+
+vertical-pod-autoscaler:
+  enabled: false
+
 # V1_tables
 
 tablesv2:
   LOGS:
     table_manager:
+      memoryAutoScaler:
+        enabled: false
+        min: MINMEMTBLMAN
+        max: MAXMEMTBLMAN
       priorityClassName: dashbase-high-priority
       podConfig:
         nodeSelector:
@@ -105,6 +117,8 @@ tablesv2:
         nodeSelector:
           role: backend
       replicas: 1
+      horizontalpodautoscaler:
+        enabled: false
       containerConfig:
         resources:
           requests:
@@ -182,19 +196,7 @@ services:
     podConfig:
       nodeSelector:
         role: core
-    secrets:
-      presto-cert:
-        dir: /run/prestojks/
-        file: presto-cert.pem
-      presto-key:
-        dir: /run/prestojks/
-        file: presto-key.pem
-      presto-keystore:
-        dir: /run/prestojks/
-        file: presto-keystore
-      presto-keystore-password:
-        dir: /run/prestojks/
-        file: presto-keystore-password
+    #PRESTO_SECRETS
     containerConfig:
       resources:
         limits:
