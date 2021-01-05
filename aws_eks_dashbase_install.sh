@@ -10,26 +10,25 @@ fi
 RANDOM=$(openssl rand -hex 3 > randomstring)
 RSTRING=$(cat randomstring)
 
-DASHVERSION="2.2.11"
-AWS_EKS_SCRIPT_VERSION="2.2.11"
+DASHVERSION="2.5.5"
+AWS_EKS_SCRIPT_VERSION="2.5.5"
 AWS_ACCESS_KEY="undefined"
 AWS_SECRET_ACCESS_KEY="undefined"
-REGION="us-east-2"
+REGION="us-east-1"
 HELM_VERSION="v3.1.1"
-INSTYPE="r5.xlarge"
+INSTYPE="c5.4xlarge"
 NODENUM=2
 CLUSTERNAME="mydash$RSTRING"
 CLUSTERSIZE="small"
 ZONEA="a"
 ZONEB="b"
-ZONEC="c"
 SETUP_TYPE="ingress"
 CMDS="curl tar unzip git openssl"
 AUTHUSERNAME="undefined"
 AUTHPASSWORD="undefined"
 V2_FLAG="false"
-BASIC_AUTH="false"
-KUBECTLVERSION="1.15"
+BASIC_AUTH="true"
+KUBECTLVERSION="1.16"
 CDR_FLAG="false"
 UCAAS_FLAG="false"
 
@@ -107,8 +106,8 @@ function fail_if_empty() {
   return 0
 }
 
-echo "$@" > /tmp/setup_arguments
-echo "$#" > /tmp/no_arguments
+echo "$@" > setup_arguments
+echo "$#" > no_arguments
 
 while [[ $# -gt 0 ]]; do
   PARAM=${1%%=*}
@@ -216,8 +215,8 @@ fi
 }
 
 check_commands() {
-  for x in $CMDS
-     do command -v "$x" > /dev/null && continue || { log_fatal "$x command not found."; }
+  for x in $CMDS; do
+    command -v "$x" > /dev/null && continue || { log_fatal "$x command not found."; }
   done
 }
 
@@ -227,29 +226,32 @@ check_version() {
     log_info "No input dashbase version, use default version $DASHVERSION"
   else
     log_info "Dashbase version entered is $VERSION"
-    if [ "$(curl --silent -k https://registry.hub.docker.com/v2/repositories/dashbase/api/tags/$VERSION |tr -s ',' '\n' |grep -c digest)" -eq 1 ]; then
+    if [ "$(curl --silent -k https://registry.hub.docker.com/v2/repositories/dashbase/api/tags/$VERSION | tr -s ',' '\n' | grep -c digest)" -eq 1 ]; then
       log_info "Entered dashbase version $VERSION is valid"
     else
       log_fatal "Entered dashbase version $VERSION is invalid"
     fi
   fi
-  VNUM=$(echo $VERSION |cut -d "." -f1)
+  VNUM=$(echo $VERSION | cut -d "." -f1)
 }
 
 check_ostype() {
   if [[ $OSTYPE == *"darwin"* ]]; then
     WKOSTYPE="mac"
-    log_fatal "Dedected current workstation is a $WKOSTYPE, this script only tested on linux"
-    WKOSTYPE="mac"
+    log_faltal "Dedected current workstation is a $WKOSTYPE"
   elif [[ $OSTYPE == *"linux"* ]]; then
-    log_info "Dedected current workstation is a $WKOSTYPE"
     WKOSTYPE="linux"
+    log_info "Dedected current workstation is a $WKOSTYPE"
   else
     log_fatal "This script is only tested on linux; and fail to detect the current worksattion os type"
   fi
 }
 
 check_input() {
+  # check bucketname
+  if [ "$BUCKETNAME" == "" ]; then
+    BUCKETNAME="s3-$CLUSTERNAME"
+  fi
   # checking required input arguments
   # if either AWS key or AWS secret is not present, script run will be fail and exit 1
   # Default installation will setup a small K8s cluster with two r5.xlarge worker nodes, if instance type and node mumber is not provided
@@ -264,23 +266,17 @@ check_input() {
     log_info "Entered aws secret access key = $AWS_SECRET_ACCESS_KEY"
     log_info "Default AWS region = $REGION"
     # check dashbase version
-     if [[ ${VNUM} -ge 2 ]] && [[ "$INSTYPE" == "r5.xlarge" ]]; then
+     if [[ ${VNUM} -ge 2 ]] && [[ "$INSTYPE" == "c5.4xlarge" ]]; then
        log_info "dashbase V2 is selected and no instance type provided"
        INSTYPE="c5.4xlarge"
-       if [[ "$NODENUM" -lt 2 ]]; then
-         log_fatal "Entered node number must be equal or greater than two"
-       fi
-     elif [[ ${VNUM} -ge 2 ]] && [[ "$INSTYPE" != "r5.xlarge" ]]; then
+     elif [[ ${VNUM} -ge 2 ]] && [[ "$INSTYPE" != "c5.4xlarge" ]]; then
        log_info "dashbase V2 is selected and instance type is $INSTYPE"
-       if [[ "$NODENUM" -lt 2 ]]; then
-         log_fatal "Entered node number must be equal or greater than two"
-       fi
-     elif [[ "$V2_FLAG" ==  "false" ]] && [[ ${VNUM} -eq 1 ]]; then
+       INSTYPE="$INSTYPE"
+     elif [[ "$V2_FLAG" == "false" ]] && [[ ${VNUM} -eq 1 ]]; then
        log_info "dashbase V1 is selected"
        if [ "$CLUSTERSIZE" == "large" ]; then INSTYPE="r5.2xlarge" ; fi
-       if [[ "$NODENUM" -lt 2 ]]; then
+     elif [[ "$NODENUM" -lt 2 ]]; then
          log_fatal "Entered node number must be equal or greater than two"
-       fi
      fi
     log_info "Instance type used on EKS cluster = $INSTYPE"
     log_info "Number of worker nodes in EKS cluster = $NODENUM"
@@ -308,13 +304,21 @@ setup_centos() {
   # the setup_centos function  will install aws cli, kubectl, eksctl and helm3
   # install aws cli
   if [ "$(command -v aws > /dev/null ; echo $?)" -eq "0" ]; then
-    log_info "aws cli is already installed"
-    aws --version
+    AWSVER=$(aws --version | awk '{print $1}' | cut -d"/" -f2 | cut -c-1)
+    log_info "aws cli is already installed and is in version $AWSVER"
+    if [ "$AWSVER" -lt 2 ]; then
+      log_warning "aws version $AWSVER does not meet requirement"
+      log_fatal "please  setup aws cli 2.X ; e.g. brew install awscli ; brew link awscli"
+    else
+      log_info "aws version $AWSVER meet requirement"
+    fi
   else
     log_info "aws cli is not installed, installing it now"
-     curl https://s3.amazonaws.com/aws-cli/awscli-bundle-1.16.188.zip -o awscli-bundle.zip
-     unzip -o awscli-bundle.zip
-     awscli-bundle/install -i /usr/local/aws -b /usr/local/bin/aws
+     # install aws cli dependency
+     yum install -y glibc groff less unzip
+     curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+     unzip -o awscliv2.zip
+     sudo ./aws/install
   fi
 
   log_info "Configure AWS CLI"
@@ -447,7 +451,11 @@ create_s3() {
   else
      log_info "s3 bucekt with name %BUCKETNAME is not found, creating"
      aws s3 mb s3://$BUCKETNAME --region $REGION
-     if [ "$(aws s3 ls s3://$BUCKETNAME > /dev/null; echo $?)" -eq "0" ]; then log_info "S3 bucket $BUCKETNAME created successfully"; else log_fatal "S3 bucket $BUCKETNAME failed to create"; fi
+     if [ "$(aws s3 ls s3://$BUCKETNAME > /dev/null; echo $?)" -eq "0" ]; then
+       log_info "S3 bucket $BUCKETNAME created successfully"
+     else
+       log_fatal "S3 bucket $BUCKETNAME failed to create"
+     fi
   fi
 }
 
@@ -474,24 +482,42 @@ create_s3_bucket_policy() {
 
 # attach the s3 bucket policy to the EKS worker nodegroup instance profile
 insert_s3_policy_to_nodegroup() {
-  INSNODE=$(kubectl get nodes  |tail  -1 |awk '{print $1}')
-  INSPROFILENAME=$(aws ec2 describe-instances --region $REGION --filters "Name=network-interface.private-dns-name,Values=$INSNODE" --query 'Reservations[*].Instances[*].[IamInstanceProfile.Arn]' --output text |cut -d "/" -f2)
-  log_info "The instance profile name assciated to the worker nodes is $INSPROFILENAME"
   POARN=$(echo "aws iam list-policies --query 'Policies[?PolicyName==\`$BUCKETNAME\`].Arn' --output text |awk '{ print $1}'" | bash)
-
-  IAMINSROLE=$(aws iam get-instance-profile --instance-profile-name "$INSPROFILENAME" |grep RoleName |sed -e 's/\"//g' |sed -e 's/\,//g' |awk '{ print $2}')
-  log_info "The instance role name associated to the worker nodegroup is $IAMINSROLE"
-  log_info "attaching the s3 bucket policy $POARN to the role $IAMINSROLE"
-  aws iam attach-role-policy --policy-arn "$POARN" --role-name "$IAMINSROLE"
-  #check_role_policy
-  log_info "checking attached s3 bucket policy on the role $IAMINSROLE"
-  COUNTPO=$( aws iam list-attached-role-policies --role-name "$IAMINSROLE" --output text |grep -c "$POARN")
-  if [ "$COUNTPO" -eq "1" ]; then
-    log_info "The s3 bucket access policy $POARN is attached to role $IAMINSROLE"
-  else
-    log_fatal "The s3 bucket access policy $POARN is not attached to role $IAMINSROLE"
-  fi
+  for NODEGROUP in $(aws eks list-nodegroups --region=$REGION --output json --cluster-name $CLUSTERNAME | jq -r '.nodegroups[]'); do
+    IAMINSROLE=$(aws eks describe-nodegroup --region=$REGION --output json --cluster-name $CLUSTERNAME --nodegroup-name $NODEGROUP | jq -r '.nodegroup.nodeRole' | cut -d "/" -f2)
+    log_info "Found associated worker nodegroup: $IAMINSROLE"
+    log_info "attaching the s3 bucket policy $POARN to the role $IAMINSROLE"
+    aws iam attach-role-policy --policy-arn "$POARN" --role-name "$IAMINSROLE"
+    #check_role_policy
+    log_info "checking attached s3 bucket policy on the role $IAMINSROLE"
+    COUNTPO=$(aws iam list-attached-role-policies --role-name "$IAMINSROLE" --output text | grep -c "$POARN")
+    if [ "$COUNTPO" -eq "1" ]; then
+      log_info "The s3 bucket access policy $POARN is attached to role $IAMINSROLE"
+    else
+      log_fatal "The s3 bucket access policy $POARN is not attached to role $IAMINSROLE"
+    fi
+  done
 }
+
+# insert_s3_policy_to_nodegroup() {
+#  INSNODE=$(kubectl get nodes  |tail  -1 |awk '{print $1}')
+#  INSPROFILENAME=$(aws ec2 describe-instances --region $REGION --filters "Name=network-interface.private-dns-name,Values=$INSNODE" --query 'Reservations[*].Instances[*].[IamInstanceProfile.Arn]' --output text |cut -d "/" -f2)
+#  log_info "The instance profile name assciated to the worker nodes is $INSPROFILENAME"
+#  POARN=$(echo "aws iam list-policies --query 'Policies[?PolicyName==\`$BUCKETNAME\`].Arn' --output text |awk '{ print $1}'" | bash)
+#
+#  IAMINSROLE=$(aws iam get-instance-profile --instance-profile-name "$INSPROFILENAME" |grep RoleName |sed -e 's/\"//g' |sed -e 's/\,//g' |awk '{ print $2}')
+#  log_info "The instance role name associated to the worker nodegroup is $IAMINSROLE"
+#  log_info "attaching the s3 bucket policy $POARN to the role $IAMINSROLE"
+#  aws iam attach-role-policy --policy-arn "$POARN" --role-name "$IAMINSROLE"
+  #check_role_policy
+#  log_info "checking attached s3 bucket policy on the role $IAMINSROLE"
+#  COUNTPO=$( aws iam list-attached-role-policies --role-name "$IAMINSROLE" --output text |grep -c "$POARN")
+#  if [ "$COUNTPO" -eq "1" ]; then
+#    log_info "The s3 bucket access policy $POARN is attached to role $IAMINSROLE"
+#  else
+#    log_fatal "The s3 bucket access policy $POARN is not attached to role $IAMINSROLE"
+#  fi
+# }
 
 V1_dashbase() {
     if  [ "$CLUSTERSIZE" == "small" ]; then
@@ -742,13 +768,13 @@ check_commands
 check_version
 check_input
 show_setup
-check_basic_auth
+#check_basic_auth
 setup_centos
-check_previous_mydash
-check_max_vpc_limit
-setup_eks_cluster
-check_eks_cluster
-setup_dashbase
+# check_previous_mydash
+# check_max_vpc_limit
+# setup_eks_cluster
+# check_eks_cluster
+# setup_dashbase
 # shellcheck disable=SC2119
-display_bucketname
+# display_bucketname
 #} 2>&1 | tee -a /tmp/aws_eks_setup_"$(date +%d-%m-%Y_%H-%M-%S)".log
