@@ -1,0 +1,32 @@
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  name: CLUSTERNAME
+  region: REGION
+  version: "KUBECTLVERSION"
+
+availabilityZones: ["REGIONa", "REGIONb"]
+managedNodeGroups:
+  - name: dashbase-core
+    labels: { role: core }
+    instanceType: c5.xlarge
+    desiredCapacity: 3
+    minSize: 3
+    maxSize: 3
+    volumeSize: 80
+    availabilityZones: ["REGIONa"]
+    ssh:
+      allow: true
+      publicKeyPath: MYPUBKEY
+  - name: dashbase-backend
+    labels: { role: backend }
+    instanceType: MYINSTYPE
+    desiredCapacity: NODECOUNT
+    minSize: NODECOUNT
+    maxSize: NODECOUNT
+    volumeSize: 80
+    availabilityZones: ["REGIONa"]
+    ssh:
+      allow: true
+      publicKeyPath: MYPUBKEY

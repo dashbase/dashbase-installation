@@ -80,35 +80,7 @@ vertical-pod-autoscaler:
 # V1_tables
 
 tablesv2:
-  LOGS:
-    table_manager:
-      memoryAutoScaler:
-        enabled: false
-        min: MINMEMTBLMAN
-        max: MAXMEMTBLMAN
-      priorityClassName: dashbase-high-priority
-      replicas: 1
-      containerConfig:
-        resources:
-          requests:
-            cpu: 1
-            memory: 6G
-          limits:
-            cpu: 1
-            memory: 6G
-    indexer:
-      priorityClassName: dashbase-high-priority
-      replicas: 1
-      horizontalpodautoscaler:
-        enabled: false
-      containerConfig:
-        resources:
-          requests:
-            cpu: INXCPU
-            memory: INXMEMG
-          limits:
-            cpu: INXCPU
-            memory: INXMEMG
+
 
 services:
   etcd:
@@ -139,6 +111,7 @@ services:
     priorityClassName: dashbase-high-priority
     environment:
       #API_ENV
+
       ENABLE_K8S_DISCOVERY: "true"
     containerConfig:
       resources:
@@ -187,7 +160,6 @@ services:
       ENABLE_APPS: "false"
       ENABLE_APPS_NETSAPIENS: "false"
       UCAAS_PROMETHEUS_URL: "http://prometheus:9090"
-#     UCAAS_PRESTO_URL: "jdbc:presto://presto-coordinator-0.presto-coordinator.dashbase.svc.cluster.local:8443/thrift/dashbase?user=test&password=&SSL=true&SSLKeyStorePath=/run/prestojks/presto-keystore&SSLKeyStorePassword=PRESTO_KEYSTORE_PASSWORD"
 
   prometheus:
     enabled: true
@@ -243,7 +215,7 @@ services:
   searcher:
     enabled: true
     priorityClassName: dashbase-high-priority
-    replicas: 2
+    replicas: SEARCHERREPLICA
     containerConfig:
       resources:
         requests:

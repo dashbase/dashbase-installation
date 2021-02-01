@@ -1,37 +1,27 @@
 #!/bin/bash
 
+BASEDIR=$(dirname "$0")
+rm -rf "$BASEDIR"/estnodecountfile
+
 # This script requires openssl
-command -v openssl > /dev/null
+command -v openssl >/dev/null
 if [[ "${?}" -ne 0 ]]; then
   printf "openssl is not installed, exiting\\n"
   exit 1
 fi
 
-RANDOM=$(openssl rand -hex 3 > randomstring)
+RANDOM=$(openssl rand -hex 3 >randomstring)
 RSTRING=$(cat randomstring)
 
-DASHVERSION="2.5.5"
-AWS_EKS_SCRIPT_VERSION="2.5.5"
+AWS_EKS_SCRIPT_VERSION="2.6.1"
 AWS_ACCESS_KEY="undefined"
 AWS_SECRET_ACCESS_KEY="undefined"
 REGION="us-east-1"
 HELM_VERSION="v3.1.1"
-INSTYPE="c5.4xlarge"
-NODENUM=2
 CLUSTERNAME="mydash$RSTRING"
-CLUSTERSIZE="small"
-ZONEA="a"
-ZONEB="b"
-SETUP_TYPE="ingress"
-CMDS="curl tar unzip git openssl"
-AUTHUSERNAME="undefined"
-AUTHPASSWORD="undefined"
-V2_FLAG="false"
-BASIC_AUTH="true"
+CMDS="curl tar unzip git openssl bc wget sed"
 KUBECTLVERSION="1.16"
-CDR_FLAG="false"
-UCAAS_FLAG="false"
-
+SPECFILE="$BASEDIR"/dashbase_specfile
 
 echo "AWS EKS setup script version is $AWS_EKS_SCRIPT_VERSION"
 
@@ -45,44 +35,17 @@ display_help() {
   echo "     --aws_secret_access_key  AWS SECRET ACCESS KEY"
   echo "                              e.g. --aws_secret_access_key=YOURACESSSECRETACCESSKEY"
   echo "     --region                 AWS region e.g. --region=us-west-2"
-  echo "     --instance_type          AWS instance type, default is r5.xlarge"
-  echo "                              e.g. --instance_type=c5.2xlarge"
-  echo "     --nodes_number           number of EKS worker nodes, default is 2"
-  echo "                              e.g. --nodes_number=4"
   echo "     --cluster_name           EKS cluster name, default is mydash appends 6 characters"
   echo "                              e.g. --cluster_name=myclustername"
-  echo "     --cluster_size           default sizing, choice between small or large, default is small"
-  echo "                              e.g. --cluster_size=large"
-  echo "     --setup_type             default expose endpoints method, choice between ingree or lb"
-  echo "                              default setup_type is ingress, e.g. --setup_type=lb"
   echo "     --subdomain              subdomain is required for default setup_type = ingress"
   echo "                              e.g. --subdomain=test.dashbase.io"
   echo "     --install_dashbase       setup dashbase after EKS setup complete, e.g. --install_dashbase"
-  echo "     --basic_auth             enable basic auth on web UX, e.g. --basic_auth"
-  echo "     --authusername           basic auth username, use together with basic_auth option"
-  echo "                              e.g. --authusername=admin"
-  echo "     --authpassword           basic auth password, use together with authusername option"
-  echo "                              e.g. --authpassword=dashbase"
-  echo "     --ucaas                  enable ucaas feature on dashbase installation  e.g. --ucaas"
-  echo "     --cdr                    enable cdr log data for insight page on dashbase installation  e.g. --cdr"
-  echo "     --version                dashbase version e.g. --version=1.3.2"
-  echo "     --v2                     setup dashbase V2, e.g.  --v2"
   echo ""
-  echo "   Command example in V1"
+  echo "   Command example "
   echo "   ./aws_eks_dashbase_install.sh --aws_access_key=YOURAWSACCESSKEY \ "
   echo "                                 --aws_secret_access_key=YOURACESSSECRETACCESSKEY \ "
-  echo "                                 --region=us-west-2 --subdomain=test.dashase.io  \ "
-  echo "                                 --install_dashbase --basic_auth\ "
-  echo "                                 --authusername=admin \ "
-  echo "                                 --authpassword=dashbase"
-  echo ""
-  echo "   Command example in V2"
-  echo "   ./aws_eks_dashbase_install.sh --version=2.2.1 --aws_access_key=YOURAWSACCESSKEY \ "
-  echo "                                 --aws_secret_access_key=YOURACESSSECRETACCESSKEY \ "
-  echo "                                 --region=us-west-2 --subdomain=test.dashase.io  \ "
-  echo "                                 --install_dashbase --basic_auth\ "
-  echo "                                 --authusername=admin \ "
-  echo "                                 --authpassword=dashbase"
+  echo "                                 --region=us-east-1 --subdomain=test.dashase.io  \ "
+  echo "                                 --install_dashbase  "
   echo ""
   exit 0
 }
@@ -106,8 +69,8 @@ function fail_if_empty() {
   return 0
 }
 
-echo "$@" > setup_arguments
-echo "$#" > no_arguments
+echo "$@" >setup_arguments
+echo "$#" >no_arguments
 
 while [[ $# -gt 0 ]]; do
   PARAM=${1%%=*}
@@ -131,36 +94,9 @@ while [[ $# -gt 0 ]]; do
     fail_if_empty "$PARAM" "$VALUE"
     REGION=$VALUE
     ;;
-  --instance_type)
-    fail_if_empty "$PARAM" "$VALUE"
-    INSTYPE=$VALUE
-    ;;
-  --nodes_number)
-    fail_if_empty "$PARAM" "$VALUE"
-    NODENUM=$VALUE
-    ;;
   --cluster_name)
     fail_if_empty "$PARAM" "$VALUE"
     CLUSTERNAME=$VALUE
-    ;;
-  --cluster_size)
-    fail_if_empty "$PARAM" "$VALUE"
-    CLUSTERSIZE=$VALUE
-    ;;
-  --setup_type)
-    fail_if_empty "$PARAM" "$VALUE"
-    SETUP_TYPE=$VALUE
-    ;;
-  --authusername)
-    fail_if_empty "$PARAM" "$VALUE"
-    AUTHUSERNAME=$VALUE
-    ;;
-  --authpassword)
-    fail_if_empty "$PARAM" "$VALUE"
-    AUTHPASSWORD=$VALUE
-    ;;
-  --basic_auth)
-    BASIC_AUTH="true"
     ;;
   --subdomain)
     fail_if_empty "$PARAM" "$VALUE"
@@ -169,18 +105,9 @@ while [[ $# -gt 0 ]]; do
   --install_dashbase)
     INSTALL_DASHBASE="true"
     ;;
-  --cdr)
-    CDR_FLAG="true"
-    ;;
-  --ucaas)
-    UCAAS_FLAG="true"
-    ;;
-  --v2)
-    V2_FLAG="true"
-    ;;
-  --version)
+  --ssh_key_path)
     fail_if_empty "$PARAM" "$VALUE"
-    VERSION=$VALUE
+    SSH_KEY_PATH=$VALUE
     ;;
   *)
     log_fatal "Unknown parameter ($PARAM) with ${VALUE:-no value}"
@@ -203,36 +130,16 @@ show_spinner() {
   printf "    \b\b\b\b"
 }
 
-show_setup() {
- log_info "setup type is $SETUP_TYPE"
- log_info "basic auth is $BASIC_AUTH"
-}
-
 run_by_root() {
-if [[ $EUID -ne 0 ]]; then
-   log_fatal "This script must be run as root"
-fi
+  if [[ $EUID -ne 0 ]]; then
+    log_fatal "This script must be run as root"
+  fi
 }
 
 check_commands() {
   for x in $CMDS; do
-    command -v "$x" > /dev/null && continue || { log_fatal "$x command not found."; }
+    command -v "$x" >/dev/null && continue || { log_warning "$x command not found." &&  yum install -y $x ; }
   done
-}
-
-check_version() {
-  if [ -z "$VERSION" ]; then
-    VERSION=$DASHVERSION
-    log_info "No input dashbase version, use default version $DASHVERSION"
-  else
-    log_info "Dashbase version entered is $VERSION"
-    if [ "$(curl --silent -k https://registry.hub.docker.com/v2/repositories/dashbase/api/tags/$VERSION | tr -s ',' '\n' | grep -c digest)" -eq 1 ]; then
-      log_info "Entered dashbase version $VERSION is valid"
-    else
-      log_fatal "Entered dashbase version $VERSION is invalid"
-    fi
-  fi
-  VNUM=$(echo $VERSION | cut -d "." -f1)
 }
 
 check_ostype() {
@@ -247,80 +154,258 @@ check_ostype() {
   fi
 }
 
-check_input() {
-  # check bucketname
-  if [ "$BUCKETNAME" == "" ]; then
-    BUCKETNAME="s3-$CLUSTERNAME"
+check_specfile() {
+  if [ ! -f "$SPECFILE" ]; then
+    log_fatal "Dashbase spec file $SPECFILE is not found"
   fi
-  # checking required input arguments
+  CLUSTERTYPE=$(cat $SPECFILE | grep CLUSTERTYPE | cut -d"=" -f2 | sed -e 's/\"//g')
+  DASHVERSION=$(cat $SPECFILE | grep DASHVERSION | cut -d"=" -f2 | sed -e 's/\"//g')
+  SUBDOMAIN_IN_SPECFILE=$(cat $SPECFILE | grep SUBDOMAIN | cut -d"=" -f2 | sed -e 's/\"//g')
+  V1_FLAG=$(cat $SPECFILE | grep V1_FLAG | cut -d"=" -f2 | sed -e 's/\"//g')
+  BUCKETNAME_IN_SPECFILE=$(cat $SPECFILE | grep BUCKETNAME | cut -d"=" -f2 | sed -e 's/\"//g')
+  log_info "From dashbase_sepcfile cluster setup type is $CLUSTERTYPE"
+  log_info "From dashbase_specfile target dashbase version is $DASHVERSION"
+}
+
+check_version() {
+  VERSION=$DASHVERSION
+  if [ "$(curl --silent -k https://registry.hub.docker.com/v2/repositories/dashbase/api/tags/$VERSION | tr -s ',' '\n' | grep -c digest)" -eq 1 ]; then
+    log_info "Dashbase version $VERSION in dashbase_specfile is valid"
+  else
+    log_fatal "Dashbase version $VERSION in dashbase_specfile is invalid"
+  fi
+  # create VNUM
+  if [ "$V1_FLAG" == "true" ]; then
+    log_info "From dashbase specfile V1 Backend is selected"
+    VNUM=1
+  else
+    if [[ "$VERSION" == *"nightly"* ]]; then
+      log_info "nightly version is used, VNUM is set to 2 by default"
+      VNUM=2
+    else
+      VNUM=$(echo $VERSION | cut -d "." -f1)
+      log_info "version is $VERSION and VNUM is $VNUM"
+    fi
+  fi
+}
+
+check_bucketname() {
+ if [ "$VNUM" -eq 2 ]; then
+   if [[ -n "$BUCKETNAME" ]]; then
+     log_info "Entered bucketname is $BUCKETNAME"
+     sed -i "s|bucketnotfound|$BUCKETNAME|" "$BASEDIR"/dashbase_specfile
+   elif [[ -z "$BUCKETNAME" ]] && [[ "$BUCKETNAME_IN_SPECFILE" == "bucketnotfound" ]]; then
+     BUCKETNAME="s3-$CLUSTERNAME"
+     log_info "No bucketname is entered use default bucketname $BUCKETNAME"
+     sed -i "s|bucketnotfound|$BUCKETNAME|" "$BASEDIR"/dashbase_specfile
+   elif [[ -z "$BUCKETNAME" ]] && [[ "$BUCKETNAME_IN_SPECFILE" != "bucketnotfound" ]]; then
+     BUCKETNAME="$BUCKETNAME_IN_SPECFILE"
+     log_info "No bucketname is entered use bucketname from dashbase_specfile $BUCKETNAME"
+   fi
+ fi
+}
+
+check_subdomain() {
+  if [ -n "$SUBDOMAIN" ] && [ "$SUBDOMAIN_IN_SPECFILE" == "test.dashbase.io" ]; then
+    log_info "Entered subdomain is $SUBDOMAIN"
+    sed -i "s|test.dashbase.io|$SUBDOMAIN|g" "$BASEDIR"/dashbase_specfile
+  elif [ "$SUBDOMAIN_IN_SPECFILE" != "test.dashbase.io" ]; then
+    SUBDOMAIN="$SUBDOMAIN_IN_SPECFILE"
+    log_info "Subdomain $SUBDOMAIN from dashbase_specfile is used"
+  elif [ -z "$SUBDOMAIN" ] && [ "$SUBDOMAIN_IN_SPECFILE" == "test.dashbase.io" ]; then
+    log_fatal "No subdomain is entered in script argument or defined in dashbase_specfile"
+  fi
+}
+
+check_aws_key() {
   # if either AWS key or AWS secret is not present, script run will be fail and exit 1
-  # Default installation will setup a small K8s cluster with two r5.xlarge worker nodes, if instance type and node mumber is not provided
   if [ "$AWS_ACCESS_KEY" == "undefined" ] || [ "$AWS_SECRET_ACCESS_KEY" == "undefined" ]; then
     log_fatal "Missing either AWS access key id or secret"
-  elif [[ "$NODENUM" -lt 2 ]]; then
-    log_fatal "Entered node number must be equal or greater than two"
-  elif [ "$CLUSTERSIZE" != "small" ] && [ "$CLUSTERSIZE" != "large" ]; then
-    log_fatal "Entered cluster size is invalid, only small or large is allowed"
   else
     log_info "Entered aws access key id = $AWS_ACCESS_KEY"
     log_info "Entered aws secret access key = $AWS_SECRET_ACCESS_KEY"
     log_info "Default AWS region = $REGION"
-    # check dashbase version
-     if [[ ${VNUM} -ge 2 ]] && [[ "$INSTYPE" == "c5.4xlarge" ]]; then
-       log_info "dashbase V2 is selected and no instance type provided"
-       INSTYPE="c5.4xlarge"
-     elif [[ ${VNUM} -ge 2 ]] && [[ "$INSTYPE" != "c5.4xlarge" ]]; then
-       log_info "dashbase V2 is selected and instance type is $INSTYPE"
-       INSTYPE="$INSTYPE"
-     elif [[ "$V2_FLAG" == "false" ]] && [[ ${VNUM} -eq 1 ]]; then
-       log_info "dashbase V1 is selected"
-       if [ "$CLUSTERSIZE" == "large" ]; then INSTYPE="r5.2xlarge" ; fi
-     elif [[ "$NODENUM" -lt 2 ]]; then
-         log_fatal "Entered node number must be equal or greater than two"
-     fi
-    log_info "Instance type used on EKS cluster = $INSTYPE"
-    log_info "Number of worker nodes in EKS cluster = $NODENUM"
-    log_info "The EKS cluster name = $CLUSTERNAME"
-    log_info "The EKS cluster nodegroup is located on $REGION$ZONEA"
-  fi
-  if [ "$INSTALL_DASHBASE" == "true" ]; then
-     log_info "Dashbase installation is selected"
-      if [[ "$SETUP_TYPE" != "ingress" ]] && [[ "$SETUP_TYPE" != "lb" ]]; then
-         log_fatal "Entered setup type is invalid, use either ingress or lb"
-      else
-         log_info "Entered dashbase setup type is $SETUP_TYPE"
-      fi
-      if [[ "$SETUP_TYPE" == "ingress" ]] && [[ -z "$SUBDOMAIN" ]]; then
-        log_fatal "Missing subdomain flag, please enter subdomain value e.g. --subdomain=mysub.mydomain.com"
-      elif [[ "$SETUP_TYPE" == "ingress" ]] && [[ -n "$SUBDOMAIN" ]]; then
-        log_info "Entered subdomain is $SUBDOMAIN"
-      fi
-  else
-     log_info "Dashbase installation is not selected"
   fi
 }
 
-setup_centos() {
-  # the setup_centos function  will install aws cli, kubectl, eksctl and helm3
-  # install aws cli
-  if [ "$(command -v aws > /dev/null ; echo $?)" -eq "0" ]; then
-    AWSVER=$(aws --version | awk '{print $1}' | cut -d"/" -f2 | cut -c-1)
+check_instance_type() {
+  if [ "$VNUM" -ge 2 ] && ([ "$CLUSTERTYPE" == "prod" ] || [ "$CLUSTERTYPE" == "large" ]); then
+    INSTYPE="c5.4xlarge"
+  elif [ "$VNUM" -ge 2 ] && [ "$CLUSTERTYPE" == "small" ]; then
+    INSTYPE="c5.2xlarge"
+  elif [ "$VNUM" -eq 1 ] && ([ "$CLUSTERTYPE" == "prod" ] || [ "$CLUSTERTYPE" == "large" ]); then
+    INSTYPE="r5.2xlarge"
+  elif [ "$VNUM" -eq 1 ] && [ "$CLUSTERTYPE" == "small" ]; then
+    INSTYPE="r5.xlarge"
+  fi
+  log_info "AWS instance type using is $INSTYPE"
+}
+
+estimate_node_count() {
+source "$BASEDIR"/dashbase_sepcfile
+if [ "$VNUM" -ge 2 ]; then
+  for j in {1..10} ; do
+   if [[ -n $(eval "echo \$TABLENAME$j") ]]; then
+     eval "echo TABLENAME$j is set and is \${TABLENAME$j}"
+     # check V2 table manager replica
+     if [[ -n $(eval "echo \$TMR_REPL_CNT$j") ]]; then
+        eval "echo TMR_REPL_CNT$j is \${TMR_REPL_CNT$j}"
+     else
+        export TMR_REPL_CNT$j=1
+        eval "echo TMR_REPL_CNT$j is \${TMR_REPL_CNT$j}"
+     fi
+     # check V2 indexer replica
+     if [[ -n $(eval "echo \$INX_REPL_CNT$j") ]]; then
+        eval "echo INX_REPL_CNT$j is \${INX_REPL_CNT$j}"
+     else
+        export INX_REPL_CNT$j=1
+        eval "echo INX_REPL_CNT$j is \${INX_REPL_CNT$j}"
+     fi
+     echo $(printf %.$2f $(echo "scale=2; ($(eval "echo \${TMR_REPL_CNT$j}") / 5) + ($(eval "echo \${INX_REPL_CNT$j}") / 2)" |bc)) |tee -a "$BASEDIR"/estnodecountfile
+   else
+     eval "echo TABLENAME$j is not set"
+   fi
+  done
+  # check V2 searcher replica
+  if [[ -n $SER_REPL_CNT ]]; then
+     echo "A custom searcher replica count is used"
+  elif  [[ "$CLUSTERTYPE" == "prod" ]]; then
+     export SER_REPL_CNT=2
+     echo "Default prod searcher replica count is used"
+  else
+     export SER_REPL_CNT=1
+     echo "Default searcher replica count is used"
+  fi
+  echo "The searcher replica count is $SER_REPL_CNT"
+  echo $(printf %.$2f $(echo "scale=2; $SER_REPL_CNT / 2" |bc)) | tee -a "$BASEDIR"/estnodecountfile
+else
+  for j in {1..10} ; do
+   if [[ -n $(eval "echo \$TABLENAME$j") ]]; then
+     eval "echo TABLENAME$j is set and is \${TABLENAME$j}"
+     # check V1 table replica count
+     if [[ -n $(eval "echo \$TB_REPL_CNT$j") ]]; then
+        eval "echo TB_REPL_CNT$j is \${TB_REPL_CNT$j}"
+     else
+        if [[ "$CLUSTERTYPE" == "prod" ]]; then
+           export TB_REPL_CNT$j=2
+        else
+           export TB_REPL_CNT$j=1
+        fi
+        eval "echo TB_REPL_CNT$j is \${TB_REPL_CNT$j}"
+     fi
+     echo $(printf %.$2f $(echo "scale=2; ($(eval "echo \${TB_REPL_CNT$j}") / 2) + 0.1" |bc)) | tee -a "$BASEDIR"/estnodecountfile
+   else
+     eval "echo TABLENAME$j is not set"
+   fi
+  done
+fi
+
+# Evaluate total node numbers
+BACKEND_NODES=$(cat "$BASEDIR"/estnodecountfile | awk '{node_num += $0} END{print node_num}')
+
+if [[ "$CLUSTERTYPE" == "prod" ]]; then
+   TOTAL_NODES=$BACKEND_NODES
+   echo "The total number of backend nodes  with instance type $INSTYPE required in dashbase-backend nodegroup is $TOTAL_NODES"
+   echo "The total number of core nodes with instance type c5.xlarge required in dashbase-core nodegroup is 3"
+elif [[ "$CLUSTERTYPE" == "large" ]]; then
+   TOTAL_NODES=$(expr $BACKEND_NODES + 1)
+   echo "The total number of nodes with instance type $INSTYPE required is $TOTAL_NODES"
+elif [[ "$CLUSTERTYPE" == "small" ]]; then
+   TOTAL_NODES=$(expr $BACKEND_NODES + 2)
+   echo "The total number of nodes with instance type $INSTYPE required is $TOTAL_NODES"
+fi
+}
+
+install_aws_cli() {
+  # install aws cli and its dependency
+  yum install -y glibc groff less unzip
+  curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+  unzip -o awscliv2.zip
+  sudo ./aws/install
+}
+
+check_and_install_aws_cli() {
+  if [ "$(
+    command -v aws >/dev/null
+    echo $?
+  )" -eq "0" ]; then
+    AWSVER=$(aws --version -o text &> awsfile ;  cat awsfile |awk '{print $1}' | cut -d"/" -f2 | cut -c-1)
     log_info "aws cli is already installed and is in version $AWSVER"
     if [ "$AWSVER" -lt 2 ]; then
-      log_warning "aws version $AWSVER does not meet requirement"
-      log_fatal "please  setup aws cli 2.X ; e.g. brew install awscli ; brew link awscli"
+      log_warning "aws version $AWSVER does not meet requirement, reinstalling aws cli to version 2"
+      install_aws_cli
     else
       log_info "aws version $AWSVER meet requirement"
     fi
   else
     log_info "aws cli is not installed, installing it now"
-     # install aws cli dependency
-     yum install -y glibc groff less unzip
-     curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-     unzip -o awscliv2.zip
-     sudo ./aws/install
+    install_aws_cli
   fi
+}
 
+install_kubectl() {
+  if [ "$(
+    command -v kubectl >/dev/null
+    echo $?
+  )" -eq "0" ]; then
+    log_info "kubectl is installed in this host"
+    kubectl version --client --short=true
+  else
+    log_info "kubectl is not installed, installing it now"
+    curl -k https://storage.googleapis.com/kubernetes-release/release/v1.17.0/bin/linux/amd64/kubectl -o /usr/local/bin/kubectl
+    chmod a+x /usr/local/bin/kubectl
+  fi
+}
+
+install_eksctl() {
+  if [ "$(
+    command -v eksctl >/dev/null
+    echo $?
+  )" -eq "0" ]; then
+    log_info "eksctl is installed in this host"
+    eksctl version
+  else
+    log_info "eksctl is not installed, installing it now"
+    curl --silent --location "https://github.com/weaveworks/eksctl/releases/download/latest_release/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
+    mv /tmp/eksctl /usr/local/bin
+    chmod +x /usr/local/bin/eksctl
+  fi
+}
+
+install_helm3() {
+  if [ "$(
+    command -v helm >/dev/null
+    echo $?
+  )" -eq "0" ]; then
+    log_info "helm is installed, checking helm version"
+    # check helm version 2 or 3
+    if [ "$(helm version --client | grep -c "v3.")" -eq "1" ]; then log_info "this is helm3"; else log_fatal "helm2 is detected, please uninstall it before proceeding"; fi
+  else
+    log_info "helm 3 is not installed, isntalling it now"
+    curl -k https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz -o helm-${HELM_VERSION}-linux-amd64.tar.gz
+    tar -zxvf helm-${HELM_VERSION}-linux-amd64.tar.gz
+    cp linux-amd64/helm /usr/local/bin/
+    chmod +x /usr/local/bin/helm
+  fi
+}
+
+create_ssh_key_pairs() {
+  if [ -z "$SSH_KEY_PATH" ]; then
+    log_info "No ssh key path is entered, create ssh keypairs dashbase_rsa and dashbase_rsa.pub"
+    rm -rf "$BASEDIR"/dashbase_rsa
+    ssh-keygen -q -t rsa -N '' -f "$BASEDIR"/dashbase_rsa <<< ""$'\n'"y"
+    PUBKEY="$BASEDIR/dashbase_rsa.pub"
+  else
+    log_info "ssh key path is entered"
+    PUBKEY="$SSH_KEY_PATH"
+  fi
+  log_info "The ssh pub key path is $PUBKEY"
+}
+
+setup_centos() {
+  # the setup_centos function  will install aws cli, kubectl, eksctl and helm3
+  # install aws cli
+  check_and_install_aws_cli
   log_info "Configure AWS CLI"
   /usr/local/bin/aws --version
   /usr/local/bin/aws --profile default configure set aws_access_key_id $AWS_ACCESS_KEY
@@ -330,65 +415,34 @@ setup_centos() {
   /usr/local/bin/aws configure list
 
   # install kubectl
-  if [ "$(command -v kubectl > /dev/null ; echo $?)" -eq "0" ]; then
-    log_info "kubectl is installed in this host"
-    kubectl version --client --short=true
-  else
-     log_info "kubectl is not installed, installing it now"
-     curl -k https://storage.googleapis.com/kubernetes-release/release/v1.17.0/bin/linux/amd64/kubectl -o /usr/local/bin/kubectl
-     chmod a+x /usr/local/bin/kubectl
-  fi
+  install_kubectl
+
   # install eksctl
-  if [ "$(command -v eksctl > /dev/null ; echo $?)" -eq "0" ]; then
-    log_info "eksctl is installed in this host"
-    eksctl version
-  else
-    log_info "eksctl is not installed, installing it now"
-    curl --silent --location "https://github.com/weaveworks/eksctl/releases/download/latest_release/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
-    mv /tmp/eksctl /usr/local/bin
-    chmod +x /usr/local/bin/eksctl
-  fi
+  install_eksctl
+
   # install helm 3
-  if [ "$(command -v helm > /dev/null ; echo $?)" -eq "0" ]; then
-    log_info "helm is installed, checking helm version"
-     # check helm version 2 or 3
-     if [ "$( helm version --client |grep -c "v3." )" -eq "1" ]; then log_info "this is helm3"; else log_fatal "helm2 is detected, please uninstall it before proceeding"; fi
-  else
-    log_info "helm 3 is not installed, isntalling it now"
-    curl -k https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz -o  helm-${HELM_VERSION}-linux-amd64.tar.gz
-    tar -zxvf helm-${HELM_VERSION}-linux-amd64.tar.gz
-    cp linux-amd64/helm /usr/local/bin/
-    chmod +x /usr/local/bin/helm
-  fi
+  install_helm3
 
   # export all command path
   export PATH=$PATH:/usr/local/bin/kubectl:/usr/local/bin/helm:/usr/local/bin/eksctl
 }
 
-check_basic_auth() {
-  # check basic auth input
-  if [ "$BASIC_AUTH" != "true" ]; then
-    log_info "Basic auth setting is not selected"
+set_eks_file(){
+  if [ "$CLUSTERTYPE" == "prod" ]; then
+    EKSFILE="$BASEDIR/prod-eks-cluster.yaml"
   else
-    log_info "Basic auth is selected and checks input auth username and password"
-    if [ "$AUTHUSERNAME" == "undefined" ] | [ "$AUTHPASSWORD" == "undefined" ]; then
-      log_fatal "Either basic auth username or password is not entered"
-    else
-      if  [[ "$AUTHUSERNAME" =~ [^a-zA-Z0-9] ]] && [[ "$AUTHPASSWORD" =~ [^a-zA-Z0-9] ]]  ; then
-        log_fatal "The entered auth username or password is not alphanumeric"
-      else
-         log_info "The entered auth usermane is $AUTHUSERNAME"
-         log_info "The entered auth password is $AUTHPASSWORD"
-      fi
-    fi
+    EKSFILE="$BASEDIR/eks-cluster.yaml"
   fi
-  # check basic auth dependency
-  # basic auth only works in ingres and requires ingress be true and non null subdomain string
-  if [ "$BASIC_AUTH" == "true" ] && [ "$SETUP_TYPE" != "ingress" ]; then
-    log_fatal "Basic auth is selected but not setup type is not selecting ingress, please check your options"
-  elif [ "$BASIC_AUTH" == "true" ] && [ -z "$SUBDOMAIN" ]; then
-    log_fatal "Basic auth is selected but not providing --subdomain=sub.example.com string for installer script"
-  fi
+}
+
+update_eks_cluster_yaml(){
+  set_eks_file
+  sed -i "s|CLUSTERNAME|$CLUSTERNAME|" $EKSFILE
+  sed -i "s|REGION|$REGION|g" $EKSFILE
+  sed -i "s|KUBECTLVERSION|$KUBECTLVERSION|" $EKSFILE
+  sed -i "s|MYINSTYPE|$INSTYPE|" $EKSFILE
+  sed -i "s|NODECOUNT|$TOTAL_NODES|g" $EKSFILE
+  sed -i "s|MYBUCKEY|$PUBKEY|" $EKSFILE
 }
 
 check_previous_mydash() {
@@ -403,26 +457,28 @@ check_previous_mydash() {
 
 check_max_vpc_limit() {
   echo "Checking the current number of VPC in the region $REGION"
-  VPC_LIMIT=$(aws service-quotas get-service-quota --service-code 'vpc' --region $REGION --quota-code 'L-F678F1CE' --output text |awk '{print $NF}' |awk '{$0=int($0)}1')
+  VPC_LIMIT=$(aws service-quotas get-service-quota --service-code 'vpc' --region $REGION --quota-code 'L-F678F1CE' --output text | awk '{print $NF}' | awk '{$0=int($0)}1')
   log_info "The max vpc limit in the region $REGION is $VPC_LIMIT"
+  # verify vpc max limit is int or not
+  if [[ $VPC_LIMIT =~ ^-?[0-9]+$ ]]; then
+    log_info "Checking VPC max limit value and  is an integer and is equal to $VPC_LIMIT"
+  else
+    log_warning "The detected VPC max limit is not an integer, something may be wrong, and will use default vpc max limit in the region $REGION and is 5"
+    VPC_LIMIT="5"
+  fi
 }
 
 setup_eks_cluster() {
   # Setup AWS EKS cluster with provided AWS Access key from the centos nodea
-  # verify vpc max limit is int or not
-  if [[ $VPC_LIMIT =~ ^-?[0-9]+$ ]]; then
-    log_info "Checking VPC max limit value and  is an integer and is equal to $VPC_LIMIT" 
-  else  
-    log_warning "The detected VPC max limit is not an integer, something may be wrong, and will use default vpc max limit in the region $REGION and is 5"
-    VPC_LIMIT="5"
-  fi
-
+  check_previous_mydash
+  check_max_vpc_limit
+  set_eks_file
   # compare vpc count with max vpc limit , the vpc count should be less than vpc limit
-  if [ "$(/usr/local/bin/aws ec2 describe-vpcs --region $REGION --output text |grep -c VPCS)" -lt $VPC_LIMIT ]; then
+  if [ "$(/usr/local/bin/aws ec2 describe-vpcs --region $REGION --output text | grep -c VPCS)" -lt $VPC_LIMIT ]; then
     log_info "creating AWS eks cluster, please wait. This process will take 15-20 minutes"
     date +"%T"
-    echo "/usr/local/bin/eksctl create cluster --managed --name $CLUSTERNAME --region $REGION --version $KUBECTLVERSION --node-type $INSTYPE --nodegroup-name standard-workers --zones $REGION$ZONEA,$REGION$ZONEB --nodes $NODENUM --node-zones $REGION$ZONEA --nodes-max $NODENUM --nodes-min $NODENUM"
-    /usr/local/bin/eksctl create cluster --managed --name $CLUSTERNAME --region $REGION --version $KUBECTLVERSION --node-type $INSTYPE --nodegroup-name standard-workers --zones $REGION$ZONEA,$REGION$ZONEB --nodes $NODENUM --node-zones $REGION$ZONEA --nodes-max $NODENUM --nodes-min $NODENUM
+    echo "/usr/local/bin/eksctl create cluster -f $EKSFILE"
+    /usr/local/bin/eksctl create cluster -f $EKSFILE
     date +"%T"
   else
     log_fatal "Specified EKS cluser region may not have sufficient capacity for additional VPC"
@@ -431,8 +487,8 @@ setup_eks_cluster() {
 
 check_eks_cluster() {
   # check AWS EKS cluster status
-  while [ -z "$(/usr/local/bin/aws eks list-clusters --region $REGION --output text |awk '{print $2}' |grep $CLUSTERNAME)" ] &&  [ $SECONDS -lt 30 ]; do echo -n "#" ; done
-  if [ "$(/usr/local/bin/aws eks describe-cluster --name $CLUSTERNAME --region $REGION |grep status |awk '{print $2}' |sed -e 's/\"//g' |sed -e 's/\,//g' |tr -d '\r')" == "ACTIVE" ]; then
+  while [ -z "$(/usr/local/bin/aws eks list-clusters --region $REGION --output text | awk '{print $2}' | grep $CLUSTERNAME)" ] && [ $SECONDS -lt 30 ]; do echo -n "#"; done
+  if [ "$(/usr/local/bin/aws eks describe-cluster --name $CLUSTERNAME --region $REGION | grep status | awk '{print $2}' | sed -e 's/\"//g' | sed -e 's/\,//g' | tr -d '\r')" == "ACTIVE" ]; then
     log_info "The EKS cluster $CLUSTERNAME is ACTIVE and ready"
   else
     log_fatal "The EKS cluster $CLUSTERNAME status is not ACTIVE"
@@ -442,41 +498,41 @@ check_eks_cluster() {
   /usr/local/bin/kubectl get nodes
 }
 
-# Define bucketname
-BUCKETNAME="s3-$CLUSTERNAME"
-
 create_s3() {
-  if [ "$(aws s3 ls / |grep -c $BUCKETNAME)" -eq "1" ]; then
-     log_info "S3 bucket already be created previously"
+  if [ "$(aws s3 ls / | grep -c $BUCKETNAME)" -eq "1" ]; then
+    log_info "S3 bucket already be created previously"
   else
-     log_info "s3 bucekt with name %BUCKETNAME is not found, creating"
-     aws s3 mb s3://$BUCKETNAME --region $REGION
-     if [ "$(aws s3 ls s3://$BUCKETNAME > /dev/null; echo $?)" -eq "0" ]; then
-       log_info "S3 bucket $BUCKETNAME created successfully"
-     else
-       log_fatal "S3 bucket $BUCKETNAME failed to create"
-     fi
+    log_info "s3 bucekt with name %BUCKETNAME is not found, creating"
+    aws s3 mb s3://$BUCKETNAME --region $REGION
+    if [ "$(
+      aws s3 ls s3://$BUCKETNAME >/dev/null
+      echo $?
+    )" -eq "0" ]; then
+      log_info "S3 bucket $BUCKETNAME created successfully"
+    else
+      log_fatal "S3 bucket $BUCKETNAME failed to create"
+    fi
   fi
 }
 
 update_s3_policy_json() {
-   # remove any previous mydash-s3.json file if exists
-   rm -rf mydash-s3.json
-   # download the mydash-s3.json from github
-   curl -k https://raw.githubusercontent.com/dashbase/dashbase-installation/master/deployment-tools/mydash-s3.json -o mydash-s3.json
-   sed -i "s/MYDASHBUCKET/$BUCKETNAME/" mydash-s3.json
+  # remove any previous mydash-s3.json file if exists
+  rm -rf mydash-s3.json
+  # download the mydash-s3.json from github
+  curl -k https://raw.githubusercontent.com/dashbase/dashbase-installation/master/deployment-tools/mydash-s3.json -o mydash-s3.json
+  sed -i "s/MYDASHBUCKET/$BUCKETNAME/" mydash-s3.json
 }
 
 # create s3 bucket policy
 create_s3_bucket_policy() {
   POARN=$(echo "aws iam list-policies --query 'Policies[?PolicyName==\`$BUCKETNAME\`].Arn' --output text |awk '{ print $1}'" | bash)
   if [ -z "$POARN" ]; then
-     log_info "s3 bucket policy $BUCKETNAME not exists, and now creating"
-     aws iam create-policy --policy-name $BUCKETNAME --policy-document file://mydash-s3.json
-     POARN=$(echo "aws iam list-policies --query 'Policies[?PolicyName==\`$BUCKETNAME\`].Arn' --output text |awk '{ print $1}'" | bash)
-     log_info "The s3 bucket policy ARN is $POARN"
+    log_info "s3 bucket policy $BUCKETNAME not exists, and now creating"
+    aws iam create-policy --policy-name $BUCKETNAME --policy-document file://mydash-s3.json
+    POARN=$(echo "aws iam list-policies --query 'Policies[?PolicyName==\`$BUCKETNAME\`].Arn' --output text |awk '{ print $1}'" | bash)
+    log_info "The s3 bucket policy ARN is $POARN"
   else
-     log_info "s3 bucket policy $POARN exists"
+    log_info "s3 bucket policy $POARN exists"
   fi
 }
 
@@ -499,252 +555,20 @@ insert_s3_policy_to_nodegroup() {
   done
 }
 
-# insert_s3_policy_to_nodegroup() {
-#  INSNODE=$(kubectl get nodes  |tail  -1 |awk '{print $1}')
-#  INSPROFILENAME=$(aws ec2 describe-instances --region $REGION --filters "Name=network-interface.private-dns-name,Values=$INSNODE" --query 'Reservations[*].Instances[*].[IamInstanceProfile.Arn]' --output text |cut -d "/" -f2)
-#  log_info "The instance profile name assciated to the worker nodes is $INSPROFILENAME"
-#  POARN=$(echo "aws iam list-policies --query 'Policies[?PolicyName==\`$BUCKETNAME\`].Arn' --output text |awk '{ print $1}'" | bash)
-#
-#  IAMINSROLE=$(aws iam get-instance-profile --instance-profile-name "$INSPROFILENAME" |grep RoleName |sed -e 's/\"//g' |sed -e 's/\,//g' |awk '{ print $2}')
-#  log_info "The instance role name associated to the worker nodegroup is $IAMINSROLE"
-#  log_info "attaching the s3 bucket policy $POARN to the role $IAMINSROLE"
-#  aws iam attach-role-policy --policy-arn "$POARN" --role-name "$IAMINSROLE"
-  #check_role_policy
-#  log_info "checking attached s3 bucket policy on the role $IAMINSROLE"
-#  COUNTPO=$( aws iam list-attached-role-policies --role-name "$IAMINSROLE" --output text |grep -c "$POARN")
-#  if [ "$COUNTPO" -eq "1" ]; then
-#    log_info "The s3 bucket access policy $POARN is attached to role $IAMINSROLE"
-#  else
-#    log_fatal "The s3 bucket access policy $POARN is not attached to role $IAMINSROLE"
-#  fi
-# }
-
-V1_dashbase() {
-    if  [ "$CLUSTERSIZE" == "small" ]; then
-      if [ "$SETUP_TYPE" == "ingress" ] && [ "$BASIC_AUTH" == "false" ]; then
-         log_info "Dashbase small setup with ingress controller endpoint and no basic auth is selected"
-         # checking ucass and cdr flag is selected or not
-         if [ "$UCAAS_FLAG" == "true" ] && [ "$CDR_FLAG" == "true" ]; then
-           log_info "UCAAS and CDR option is selected"
-           dashbase-installation/deployment-tools/dashbase-installer-smallsetup.sh --platform=aws --ingress --subdomain=$SUBDOMAIN --cdr --ucaas --version=$VERSION
-         elif [ "$UCAAS_FLAG" == "true" ] && [ "$CDR_FLAG" == "false" ]; then
-           log_info "UCASS option is selected"
-           dashbase-installation/deployment-tools/dashbase-installer-smallsetup.sh --platform=aws --ingress --subdomain=$SUBDOMAIN --ucaas --version=$VERSION
-         elif [ "$UCAAS_FLAG" == "false" ] && [ "$CDR_FLAG" == "true" ]; then
-           log_warning "only CDR option is selected and missing UCAAS option, will install default without UCAAS"
-           dashbase-installation/deployment-tools/dashbase-installer-smallsetup.sh --platform=aws --ingress --subdomain=$SUBDOMAIN --version=$VERSION
-         elif [ "$UCAAS_FLAG" == "false" ] && [ "$CDR_FLAG" == "false" ]; then
-           log_info "no UCAAS and CDR option is selected"
-           dashbase-installation/deployment-tools/dashbase-installer-smallsetup.sh --platform=aws --ingress --subdomain=$SUBDOMAIN --version=$VERSION
-          fi
-      elif [ "$SETUP_TYPE" == "ingress" ] && [ "$BASIC_AUTH" == "true" ]; then
-         log_info "Dashbase small setup with ingress controller endpoint and basic auth is selected"
-         # checking ucass and cdr flag is selected or not
-         if [ "$UCAAS_FLAG" == "true" ] && [ "$CDR_FLAG" == "true" ]; then
-           log_info "UCAAS and CDR option is selected"
-           dashbase-installation/deployment-tools/dashbase-installer-smallsetup.sh --platform=aws --ingress --subdomain=$SUBDOMAIN --basic_auth --authusername=$AUTHUSERNAME --authpassword=$AUTHPASSWORD --cdr --ucaas --version=$VERSION
-         elif [ "$UCAAS_FLAG" == "true" ] && [ "$CDR_FLAG" == "false" ]; then
-           log_info "UCASS option is selected"
-           dashbase-installation/deployment-tools/dashbase-installer-smallsetup.sh --platform=aws --ingress --subdomain=$SUBDOMAIN --basic_auth --authusername=$AUTHUSERNAME --authpassword=$AUTHPASSWORD --ucaas --version=$VERSION
-         elif [ "$UCAAS_FLAG" == "false" ] && [ "$CDR_FLAG" == "true" ]; then
-           log_warning "only CDR option is selected and missing UCAAS option, will install default without UCAAS"
-           dashbase-installation/deployment-tools/dashbase-installer-smallsetup.sh --platform=aws --ingress --subdomain=$SUBDOMAIN --basic_auth --authusername=$AUTHUSERNAME --authpassword=$AUTHPASSWORD --version=$VERSION
-         elif [ "$UCAAS_FLAG" == "false" ] && [ "$CDR_FLAG" == "false" ]; then
-           log_info "no UCAAS and CDR option is selected"
-           dashbase-installation/deployment-tools/dashbase-installer-smallsetup.sh --platform=aws --ingress --subdomain=$SUBDOMAIN --basic_auth --authusername=$AUTHUSERNAME --authpassword=$AUTHPASSWORD --version=$VERSION
-         fi
-      else
-         log_info "Dashbase small setup with load balancer endpoint is selected"
-         # checking ucass and cdr flag is selected or not
-         if [ "$UCAAS_FLAG" == "true" ] && [ "$CDR_FLAG" == "true" ]; then
-           log_info "UCAAS and CDR option is selected"
-           dashbase-installation/deployment-tools/dashbase-installer-smallsetup.sh --platform=aws --cdr --ucaas --version=$VERSION
-         elif [ "$UCAAS_FLAG" == "true" ] && [ "$CDR_FLAG" == "false" ]; then
-           log_info "UCASS option is selected"
-           dashbase-installation/deployment-tools/dashbase-installer-smallsetup.sh --platform=aws --ucaas --version=$VERSION
-         elif [ "$UCAAS_FLAG" == "false" ] && [ "$CDR_FLAG" == "true" ]; then
-           log_warning "only CDR option is selected and missing UCAAS option, will install default without UCAAS"
-           dashbase-installation/deployment-tools/dashbase-installer-smallsetup.sh --platform=aws --version=$VERSION
-         elif [ "$UCAAS_FLAG" == "false" ] && [ "$CDR_FLAG" == "false" ]; then
-           log_info "no UCAAS and CDR option is selected"
-           dashbase-installation/deployment-tools/dashbase-installer-smallsetup.sh --platform=aws --version=$VERSION
-        fi
-      fi
-    elif [ "$CLUSTERSIZE" == "large" ]; then
-      if [ "$SETUP_TYPE" == "ingress" ] && [ "$BASIC_AUTH" == "false" ]; then
-         log_info "Dashbase large setup with ingress controller endpoint and no basic auth is selected"
-         # checking ucass and cdr flag is selected or not
-         if [ "$UCAAS_FLAG" == "true" ] && [ "$CDR_FLAG" == "true" ]; then
-           log_info "UCAAS and CDR option is selected"
-           dashbase-installation/dashbase-installer.sh --platform=aws --ingress --subdomain=$SUBDOMAIN --cdr --ucaas --version=$VERSION
-         elif [ "$UCAAS_FLAG" == "true" ] && [ "$CDR_FLAG" == "false" ]; then
-           log_info "UCASS option is selected"
-           dashbase-installation/dashbase-installer.sh --platform=aws --ingress --subdomain=$SUBDOMAIN --ucaas --version=$VERSION
-         elif [ "$UCAAS_FLAG" == "false" ] && [ "$CDR_FLAG" == "true" ]; then
-           log_warning "only CDR option is selected and missing UCAAS option, will install default without UCAAS"
-           dashbase-installation/dashbase-installer.sh --platform=aws --ingress --subdomain=$SUBDOMAIN --version=$VERSION
-         elif [ "$UCAAS_FLAG" == "false" ] && [ "$CDR_FLAG" == "false" ]; then
-           log_info "no UCAAS and CDR option is selected"
-           dashbase-installation/dashbase-installer.sh --platform=aws --ingress --subdomain=$SUBDOMAIN --version=$VERSION
-         fi
-      elif [ "$SETUP_TYPE" == "ingress" ] && [ "$BASIC_AUTH" == "true" ]; then
-         log_info "Dashbase large setup with ingress controller endpoint and basic auth is selected"
-         # checking ucass and cdr flag is selected or not
-         if [ "$UCAAS_FLAG" == "true" ] && [ "$CDR_FLAG" == "true" ]; then
-           log_info "UCAAS and CDR option is selected"
-           dashbase-installation/dashbase-installer.sh --platform=aws --ingress --subdomain=$SUBDOMAIN --basic_auth --authusername=$AUTHUSERNAME --authpassword=$AUTHPASSWORD --cdr --ucaas --version=$VERSION
-         elif [ "$UCAAS_FLAG" == "true" ] && [ "$CDR_FLAG" == "false" ]; then
-           log_info "UCASS option is selected"
-           dashbase-installation/dashbase-installer.sh --platform=aws --ingress --subdomain=$SUBDOMAIN --basic_auth --authusername=$AUTHUSERNAME --authpassword=$AUTHPASSWORD --ucaas --version=$VERSION
-         elif [ "$UCAAS_FLAG" == "false" ] && [ "$CDR_FLAG" == "true" ]; then
-           log_warning "only CDR option is selected and missing UCAAS option, will install default without UCAAS"
-           dashbase-installation/dashbase-installer.sh --platform=aws --ingress --subdomain=$SUBDOMAIN --basic_auth --authusername=$AUTHUSERNAME --authpassword=$AUTHPASSWORD --version=$VERSION
-         elif [ "$UCAAS_FLAG" == "false" ] && [ "$CDR_FLAG" == "false" ]; then
-           log_info "no UCAAS and CDR option is selected"
-           dashbase-installation/dashbase-installer.sh --platform=aws --ingress --subdomain=$SUBDOMAIN --basic_auth --authusername=$AUTHUSERNAME --authpassword=$AUTHPASSWORD --version=$VERSION
-         fi
-      else
-         log_info "Dashbase small setup with load balancer endpoint is selected"
-         # checking ucass and cdr flag is selected or not
-         if [ "$UCAAS_FLAG" == "true" ] && [ "$CDR_FLAG" == "true" ]; then
-           log_info "UCAAS and CDR option is selected"
-           dashbase-installation/dashbase-installer.sh --platform=aws --cdr --ucaas --version=$VERSION
-         elif [ "$UCAAS_FLAG" == "true" ] && [ "$CDR_FLAG" == "false" ]; then
-           log_info "UCASS option is selected"
-           dashbase-installation/dashbase-installer.sh --platform=aws --ucaas --version=$VERSION
-         elif [ "$UCAAS_FLAG" == "false" ] && [ "$CDR_FLAG" == "true" ]; then
-           log_warning "only CDR option is selected and missing UCAAS option, will install default without UCAAS"
-           dashbase-installation/dashbase-installer.sh --platform=aws --version=$VERSION
-         elif [ "$UCAAS_FLAG" == "false" ] && [ "$CDR_FLAG" == "false" ]; then
-           log_info "no UCAAS and CDR option is selected"
-           dashbase-installation/dashbase-installer.sh --platform=aws --version=$VERSION
-         fi
-      fi
-    fi
-}
-
-V2_dashbase() {
-    if  [ "$CLUSTERSIZE" == "small" ]; then
-      if [ "$SETUP_TYPE" == "ingress" ] && [ "$BASIC_AUTH" == "false" ]; then
-         log_info "Dashbase small setup with ingress controller endpoint and no basic auth is selected"
-         # checking ucass and cdr flag is selected or not
-         if [ "$UCAAS_FLAG" == "true" ] && [ "$CDR_FLAG" == "true" ]; then
-           log_info "UCAAS and CDR option is selected"
-           dashbase-installation/deployment-tools/dashbase-installer-smallsetup.sh --platform=aws --v2 --ingress --subdomain=$SUBDOMAIN --bucketname=$BUCKETNAME --cdr --ucaas --version=$VERSION
-         elif [ "$UCAAS_FLAG" == "true" ] && [ "$CDR_FLAG" == "false" ]; then
-           log_info "UCASS option is selected"
-           dashbase-installation/deployment-tools/dashbase-installer-smallsetup.sh --platform=aws --v2 --ingress --subdomain=$SUBDOMAIN --bucketname=$BUCKETNAME --ucaas --version=$VERSION
-         elif [ "$UCAAS_FLAG" == "false" ] && [ "$CDR_FLAG" == "true" ]; then
-           log_warning "only CDR option is selected and missing UCAAS option, will install default without UCAAS"
-           dashbase-installation/deployment-tools/dashbase-installer-smallsetup.sh --platform=aws --v2 --ingress --subdomain=$SUBDOMAIN --bucketname=$BUCKETNAME --version=$VERSION
-         elif [ "$UCAAS_FLAG" == "false" ] && [ "$CDR_FLAG" == "false" ]; then
-           log_info "no UCAAS and CDR option is selected"
-           dashbase-installation/deployment-tools/dashbase-installer-smallsetup.sh --platform=aws --v2 --ingress --subdomain=$SUBDOMAIN --bucketname=$BUCKETNAME --version=$VERSION
-         fi
-      elif [ "$SETUP_TYPE" == "ingress" ] && [ "$BASIC_AUTH" == "true" ]; then
-         log_info "Dashbase small setup with ingress controller endpoint and basic auth is selected"
-         # checking ucass and cdr flag is selected or not
-         if [ "$UCAAS_FLAG" == "true" ] && [ "$CDR_FLAG" == "true" ]; then
-           log_info "UCAAS and CDR option is selected"
-           dashbase-installation/deployment-tools/dashbase-installer-smallsetup.sh --platform=aws --v2 --ingress --subdomain=$SUBDOMAIN --basic_auth --authusername=$AUTHUSERNAME --authpassword=$AUTHPASSWORD --bucketname=$BUCKETNAME --cdr --ucaas --version=$VERSION
-         elif [ "$UCAAS_FLAG" == "true" ] && [ "$CDR_FLAG" == "false" ]; then
-           log_info "UCASS option is selected"
-           dashbase-installation/deployment-tools/dashbase-installer-smallsetup.sh --platform=aws --v2 --ingress --subdomain=$SUBDOMAIN --basic_auth --authusername=$AUTHUSERNAME --authpassword=$AUTHPASSWORD --bucketname=$BUCKETNAME --ucaas --version=$VERSION
-         elif [ "$UCAAS_FLAG" == "false" ] && [ "$CDR_FLAG" == "true" ]; then
-           log_warning "only CDR option is selected and missing UCAAS option, will install default without UCAAS"
-           dashbase-installation/deployment-tools/dashbase-installer-smallsetup.sh --platform=aws --v2 --ingress --subdomain=$SUBDOMAIN --basic_auth --authusername=$AUTHUSERNAME --authpassword=$AUTHPASSWORD --bucketname=$BUCKETNAME --version=$VERSION
-         elif [ "$UCAAS_FLAG" == "false" ] && [ "$CDR_FLAG" == "false" ]; then
-           log_info "no UCAAS and CDR option is selected"
-           dashbase-installation/deployment-tools/dashbase-installer-smallsetup.sh --platform=aws --v2 --ingress --subdomain=$SUBDOMAIN --basic_auth --authusername=$AUTHUSERNAME --authpassword=$AUTHPASSWORD --bucketname=$BUCKETNAME --version=$VERSION
-        fi
-      else
-         log_info "Dashbase small setup with load balancer endpoint is selected"
-         # checking ucass and cdr flag is selected or not
-         if [ "$UCAAS_FLAG" == "true" ] && [ "$CDR_FLAG" == "true" ]; then
-           log_info "UCAAS and CDR option is selected"
-           dashbase-installation/deployment-tools/dashbase-installer-smallsetup.sh --platform=aws --v2 --bucketname=$BUCKETNAME --cdr --ucaas --version=$VERSION
-         elif [ "$UCAAS_FLAG" == "true" ] && [ "$CDR_FLAG" == "false" ]; then
-           log_info "UCASS option is selected"
-           dashbase-installation/deployment-tools/dashbase-installer-smallsetup.sh --platform=aws --v2 --bucketname=$BUCKETNAME --ucaas --version=$VERSION
-         elif [ "$UCAAS_FLAG" == "false" ] && [ "$CDR_FLAG" == "true" ]; then
-           log_warning "only CDR option is selected and missing UCAAS option, will install default without UCAAS"
-           dashbase-installation/deployment-tools/dashbase-installer-smallsetup.sh --platform=aws --v2 --bucketname=$BUCKETNAME --version=$VERSION
-         elif [ "$UCAAS_FLAG" == "false" ] && [ "$CDR_FLAG" == "false" ]; then
-           log_info "no UCAAS and CDR option is selected"
-           dashbase-installation/deployment-tools/dashbase-installer-smallsetup.sh --platform=aws --v2 --bucketname=$BUCKETNAME --version=$VERSION
-         fi
-      fi
-    elif [ "$CLUSTERSIZE" == "large" ]; then
-      if [ "$SETUP_TYPE" == "ingress" ] && [ "$BASIC_AUTH" == "false" ]; then
-         log_info "Dashbase large setup with ingress controller endpoint and no basic auth is selected"
-         # checking ucass and cdr flag is selected or not
-         if [ "$UCAAS_FLAG" == "true" ] && [ "$CDR_FLAG" == "true" ]; then
-           log_info "UCAAS and CDR option is selected"
-           dashbase-installation/dashbase-installer.sh --platform=aws --v2 --ingress --subdomain=$SUBDOMAIN --bucketname=$BUCKETNAME --cdr --ucaas --version=$VERSION
-         elif [ "$UCAAS_FLAG" == "true" ] && [ "$CDR_FLAG" == "false" ]; then
-           log_info "UCASS option is selected"
-           dashbase-installation/dashbase-installer.sh --platform=aws --v2 --ingress --subdomain=$SUBDOMAIN --bucketname=$BUCKETNAME --ucaas --version=$VERSION
-         elif [ "$UCAAS_FLAG" == "false" ] && [ "$CDR_FLAG" == "true" ]; then
-           log_warning "only CDR option is selected and missing UCAAS option, will install default without UCAAS"
-           dashbase-installation/dashbase-installer.sh --platform=aws --v2 --ingress --subdomain=$SUBDOMAIN --bucketname=$BUCKETNAME --version=$VERSION
-         elif [ "$UCAAS_FLAG" == "false" ] && [ "$CDR_FLAG" == "false" ]; then
-           log_info "no UCAAS and CDR option is selected"
-           dashbase-installation/dashbase-installer.sh --platform=aws --v2 --ingress --subdomain=$SUBDOMAIN --bucketname=$BUCKETNAME --version=$VERSION
-         fi
-      elif [ "$SETUP_TYPE" == "ingress" ] && [ "$BASIC_AUTH" == "true" ]; then
-         log_info "Dashbase large setup with ingress controller endpoint and basic auth is selected"
-         # checking ucass and cdr flag is selected or not
-         if [ "$UCAAS_FLAG" == "true" ] && [ "$CDR_FLAG" == "true" ]; then
-           log_info "UCAAS and CDR option is selected"
-           dashbase-installation/dashbase-installer.sh --platform=aws --v2 --ingress --subdomain=$SUBDOMAIN --basic_auth --authusername=$AUTHUSERNAME --authpassword=$AUTHPASSWORD --bucketname=$BUCKETNAME --cdr --ucaas --version=$VERSION
-         elif [ "$UCAAS_FLAG" == "true" ] && [ "$CDR_FLAG" == "false" ]; then
-           log_info "UCASS option is selected"
-           dashbase-installation/dashbase-installer.sh --platform=aws --v2 --ingress --subdomain=$SUBDOMAIN --basic_auth --authusername=$AUTHUSERNAME --authpassword=$AUTHPASSWORD --bucketname=$BUCKETNAME --ucaas --version=$VERSION
-         elif [ "$UCAAS_FLAG" == "false" ] && [ "$CDR_FLAG" == "true" ]; then
-           log_warning "only CDR option is selected and missing UCAAS option, will install default without UCAAS"
-           dashbase-installation/dashbase-installer.sh --platform=aws --v2 --ingress --subdomain=$SUBDOMAIN --basic_auth --authusername=$AUTHUSERNAME --authpassword=$AUTHPASSWORD --bucketname=$BUCKETNAME --version=$VERSION
-         elif [ "$UCAAS_FLAG" == "false" ] && [ "$CDR_FLAG" == "false" ]; then
-           log_info "no UCAAS and CDR option is selected"
-           dashbase-installation/dashbase-installer.sh --platform=aws --v2 --ingress --subdomain=$SUBDOMAIN --basic_auth --authusername=$AUTHUSERNAME --authpassword=$AUTHPASSWORD --bucketname=$BUCKETNAME --version=$VERSION
-         fi
-      else
-         log_info "Dashbase small setup with load balancer endpoint is selected"
-         # checking ucass and cdr flag is selected or not
-         if [ "$UCAAS_FLAG" == "true" ] && [ "$CDR_FLAG" == "true" ]; then
-           log_info "UCAAS and CDR option is selected"
-           dashbase-installation/dashbase-installer.sh --platform=aws --v2 --bucketname=$BUCKETNAME --cdr --ucaas --version=$VERSION
-         elif [ "$UCAAS_FLAG" == "true" ] && [ "$CDR_FLAG" == "false" ]; then
-           log_info "UCASS option is selected"
-           dashbase-installation/dashbase-installer.sh --platform=aws --v2 --bucketname=$BUCKETNAME --ucaas --version=$VERSION
-         elif [ "$UCAAS_FLAG" == "false" ] && [ "$CDR_FLAG" == "true" ]; then
-           log_warning "only CDR option is selected and missing UCAAS option, will install default without UCAAS"
-           dashbase-installation/dashbase-installer.sh --platform=aws --v2 --bucketname=$BUCKETNAME --version=$VERSION
-         elif [ "$UCAAS_FLAG" == "false" ] && [ "$CDR_FLAG" == "false" ]; then
-           log_info "no UCAAS and CDR option is selected"
-           dashbase-installation/dashbase-installer.sh --platform=aws --v2 --bucketname=$BUCKETNAME --version=$VERSION
-         fi
-      fi
-    fi
-}
 
 setup_dashbase() {
   if [ "$INSTALL_DASHBASE" == "true" ]; then
     log_info "Install dashbase option is entered. This will install dashbase on the previously created EKS cluster $CLUSTERNAME"
-    echo "download dashbase software"
-    /usr/bin/git clone https://github.com/dashbase/dashbase-installation.git
-    echo "setup and configure dashbase, this process will take 20-30 minutes"
-    if [[ "$V2_FLAG" ==  "true" ]] || [[ "$VNUM" -ge 2 ]]; then
-      log_info "Dashbase V2 is selected"
+    if [ "$VNUM" -eq 2 ]; then
+      log_info "Setup Dashbase V2 required s3 buckets"
       create_s3
       update_s3_policy_json
       create_s3_bucket_policy
       insert_s3_policy_to_nodegroup
       sleep 10
-      V2_dashbase
-    else
-      log_info "Dashbase V1 is selected"
-      V1_dashbase
     fi
+    echo "setup and configure dashbase, this process will take 20-30 minutes"
+    ./dashbase_installer.sh --specfile dashbase_sepcfile
   else
     log_info "Install dashbase option is not selected, please run dashbase install script to setup your cluster"
   fi
@@ -753,7 +577,7 @@ setup_dashbase() {
 display_bucketname() {
   if [[ $INSTALL_DASHBASE == "true" ]] && [[ ${VNUM} -ge 2 ]]; then
     POARN=$(echo "aws iam list-policies --query 'Policies[?PolicyName==\`$BUCKETNAME\`].Arn' --output text |awk '{ print $1}'" | bash)
-    IAMINSROLE=$(aws iam get-instance-profile --instance-profile-name "$INSPROFILENAME" |grep RoleName |sed -e 's/\"//g' |sed -e 's/\,//g' |awk '{ print $2}')
+    IAMINSROLE=$(aws iam get-instance-profile --instance-profile-name "$INSPROFILENAME" | grep RoleName | sed -e 's/\"//g' | sed -e 's/\,//g' | awk '{ print $2}')
     echo "The S3 bucket name used in dashbase V2 setup is $BUCKETNAME"
     echo "The S3 bucket policy is $POARN"
     echo "The IAM role attached with the s3 bucket policy is $IAMINSROLE"
@@ -761,20 +585,22 @@ display_bucketname() {
 }
 
 # main process below this line
-#{
+{
 run_by_root
 check_ostype
 check_commands
+check_specfile
 check_version
-check_input
-show_setup
-#check_basic_auth
+check_bucketname
+check_subdomain
+check_aws_key
+check_instance_type
+estimate_node_count
 setup_centos
-# check_previous_mydash
-# check_max_vpc_limit
-# setup_eks_cluster
-# check_eks_cluster
-# setup_dashbase
-# shellcheck disable=SC2119
-# display_bucketname
-#} 2>&1 | tee -a /tmp/aws_eks_setup_"$(date +%d-%m-%Y_%H-%M-%S)".log
+create_ssh_key_pairs
+update_eks_cluster_yaml
+setup_eks_cluster
+check_eks_cluster
+setup_dashbase
+display_bucketname
+} 2>&1 | tee -a /tmp/aws_eks_setup_"$(date +%d-%m-%Y_%H-%M-%S)".log
