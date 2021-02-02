@@ -9,7 +9,6 @@ metadata:
 availabilityZones: ["REGIONa", "REGIONb"]
 managedNodeGroups:
   - name: standard-workers
-    labels: { role: backend }
     instanceType: MYINSTYPE
     desiredCapacity: NODECOUNT
     minSize: NODECOUNT

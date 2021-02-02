@@ -2,6 +2,13 @@
 
 BASEDIR=$(dirname "$0")
 rm -rf "$BASEDIR"/estnodecountfile
+rm -rf "$BASEDIR"/no_arguments
+rm -rf "$BASEDIR"/setup_arguments
+rm -rf "$BASEDIR"/target-eks-cluster.yaml
+rm -rf "$BASEDIR"/my_dashbase_specfile
+rm -rf "$BASEDIR"/dashbase_rsa.pub
+rm -rf "$BASEDIR"/dashbase_rsa
+
 
 # This script requires openssl
 command -v openssl >/dev/null
@@ -21,7 +28,9 @@ HELM_VERSION="v3.1.1"
 CLUSTERNAME="mydash$RSTRING"
 CMDS="curl tar unzip git openssl bc wget sed"
 KUBECTLVERSION="1.16"
-SPECFILE="$BASEDIR"/dashbase_specfile
+
+cp "$BASEDIR"/dashbase_specfile "$BASEDIR"/my_dashbase_specfile
+SPECFILE="$BASEDIR"/my_dashbase_specfile
 
 echo "AWS EKS setup script version is $AWS_EKS_SCRIPT_VERSION"
 
@@ -193,11 +202,11 @@ check_bucketname() {
  if [ "$VNUM" -eq 2 ]; then
    if [[ -n "$BUCKETNAME" ]]; then
      log_info "Entered bucketname is $BUCKETNAME"
-     sed -i "s|bucketnotfound|$BUCKETNAME|" "$BASEDIR"/dashbase_specfile
+     sed -i "s|bucketnotfound|$BUCKETNAME|" "$SPECFILE"
    elif [[ -z "$BUCKETNAME" ]] && [[ "$BUCKETNAME_IN_SPECFILE" == "bucketnotfound" ]]; then
      BUCKETNAME="s3-$CLUSTERNAME"
      log_info "No bucketname is entered use default bucketname $BUCKETNAME"
-     sed -i "s|bucketnotfound|$BUCKETNAME|" "$BASEDIR"/dashbase_specfile
+     sed -i "s|bucketnotfound|$BUCKETNAME|" "$SPECFILE"
    elif [[ -z "$BUCKETNAME" ]] && [[ "$BUCKETNAME_IN_SPECFILE" != "bucketnotfound" ]]; then
      BUCKETNAME="$BUCKETNAME_IN_SPECFILE"
      log_info "No bucketname is entered use bucketname from dashbase_specfile $BUCKETNAME"
@@ -208,7 +217,7 @@ check_bucketname() {
 check_subdomain() {
   if [ -n "$SUBDOMAIN" ] && [ "$SUBDOMAIN_IN_SPECFILE" == "test.dashbase.io" ]; then
     log_info "Entered subdomain is $SUBDOMAIN"
-    sed -i "s|test.dashbase.io|$SUBDOMAIN|g" "$BASEDIR"/dashbase_specfile
+    sed -i "s|test.dashbase.io|$SUBDOMAIN|g" "$SPECFILE"
   elif [ "$SUBDOMAIN_IN_SPECFILE" != "test.dashbase.io" ]; then
     SUBDOMAIN="$SUBDOMAIN_IN_SPECFILE"
     log_info "Subdomain $SUBDOMAIN from dashbase_specfile is used"
@@ -242,7 +251,7 @@ check_instance_type() {
 }
 
 estimate_node_count() {
-source "$BASEDIR"/dashbase_sepcfile
+source "$SPECFILE"
 if [ "$VNUM" -ge 2 ]; then
   for j in {1..10} ; do
    if [[ -n $(eval "echo \$TABLENAME$j") ]]; then
@@ -429,10 +438,11 @@ setup_centos() {
 
 set_eks_file(){
   if [ "$CLUSTERTYPE" == "prod" ]; then
-    EKSFILE="$BASEDIR/prod-eks-cluster.yaml"
+    cp "$BASEDIR"/prod-eks-cluster.yaml "$BASEDIR"/target-eks-cluster.yaml
   else
-    EKSFILE="$BASEDIR/eks-cluster.yaml"
+    cp "$BASEDIR"/eks-cluster.yaml "$BASEDIR"/target-eks-cluster.yaml
   fi
+  EKSFILE="$BASEDIR"/target-eks-cluster.yaml
 }
 
 update_eks_cluster_yaml(){
@@ -442,7 +452,7 @@ update_eks_cluster_yaml(){
   sed -i "s|KUBECTLVERSION|$KUBECTLVERSION|" $EKSFILE
   sed -i "s|MYINSTYPE|$INSTYPE|" $EKSFILE
   sed -i "s|NODECOUNT|$TOTAL_NODES|g" $EKSFILE
-  sed -i "s|MYBUCKEY|$PUBKEY|" $EKSFILE
+  sed -i "s|MYPUBKEY|$PUBKEY|" $EKSFILE
 }
 
 check_previous_mydash() {
@@ -472,7 +482,6 @@ setup_eks_cluster() {
   # Setup AWS EKS cluster with provided AWS Access key from the centos nodea
   check_previous_mydash
   check_max_vpc_limit
-  set_eks_file
   # compare vpc count with max vpc limit , the vpc count should be less than vpc limit
   if [ "$(/usr/local/bin/aws ec2 describe-vpcs --region $REGION --output text | grep -c VPCS)" -lt $VPC_LIMIT ]; then
     log_info "creating AWS eks cluster, please wait. This process will take 15-20 minutes"
