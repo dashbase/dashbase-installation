@@ -148,7 +148,7 @@ run_by_root() {
 
 check_commands() {
   for x in $CMDS; do
-    command -v "$x" >/dev/null && continue || { log_warning "$x command not found." &&  yum install -y $x ; }
+    command -v "$x" >/dev/null && continue || { log_warning "$x command not found." &&  yum install -y $x > /dev/null 2>&1 ; }
   done
 }
 
@@ -328,10 +328,10 @@ fi
 
 install_aws_cli() {
   # install aws cli and its dependency
-  yum install -y glibc groff less unzip
+  yum install -y glibc groff less unzip > /dev/null 2>&1
   curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
   unzip -o awscliv2.zip
-  sudo ./aws/install
+  sudo ./aws/install > /dev/null 2>&1
 }
 
 check_and_install_aws_cli() {
