@@ -548,6 +548,7 @@ create_s3_bucket_policy() {
 
 # attach the s3 bucket policy to the EKS worker nodegroup instance profile
 insert_s3_policy_to_nodegroup() {
+  command -v jq >/dev/null
   if [[ "${?}" -ne 0 ]]; then
     printf "jq is not installed, install jq now\\n"
     yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
@@ -584,7 +585,7 @@ setup_dashbase() {
       sleep 10
     fi
     echo "setup and configure dashbase, this process will take 20-30 minutes"
-    ./dashbase_installer.sh --specfile dashbase_sepcfile
+    ./dashbase-installer.sh --specfile dashbase_sepcfile
   else
     log_info "Install dashbase option is not selected, please run dashbase install script to setup your cluster"
   fi
