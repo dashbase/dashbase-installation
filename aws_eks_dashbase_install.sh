@@ -585,7 +585,7 @@ setup_dashbase() {
       sleep 10
     fi
     echo "setup and configure dashbase, this process will take 20-30 minutes"
-    ./dashbase-installer.sh --specfile dashbase_sepcfile
+    "$BASEDIR"/dashbase-installer.sh --specfile="$SPECFILE"
   else
     log_info "Install dashbase option is not selected, please run dashbase install script to setup your cluster"
   fi
