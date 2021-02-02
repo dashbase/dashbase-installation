@@ -1,5 +1,5 @@
 # This is the dashbase install spec file
-DASHVERSION="2.6.0"
+DASHVERSION="2.6.1"
 
 # Change the following platform to suit for the cloud e.g. gce or azure
 PLATFORM="aws"
