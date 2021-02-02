@@ -123,6 +123,7 @@ create_s3_bucket_policy() {
 
 # attach the s3 bucket policy to the EKS worker nodegroup instance profile
 insert_s3_policy_to_nodegroup() {
+  command -v jq >/dev/null
   if [[ "${?}" -ne 0 ]]; then
     printf "jq is not installed, install jq now\\n"
     yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm

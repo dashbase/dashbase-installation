@@ -95,6 +95,8 @@ display_help() {
   echo "     --systemlog    enable dashbase system log table, e.g. --systemlog  this will create a table called system."
   echo "                    and contains all dashbase pods logs in this system table"
   echo "     --demo         setup freeswitch,filebeat pods and feed log data into the target table"
+  echo "     --dry-run      will only do all checks on dependency, input paraemeters, number of nodes and size in cluster"
+  echo "                    e.g. --dry-run      dry-run flag will not make any change"
   echo ""
   echo "   The following options only be used on V2 dashbase"
   echo "     --v2               setup dashbase V2"

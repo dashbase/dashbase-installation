@@ -50,6 +50,10 @@ display_help() {
   echo "     --subdomain              subdomain is required for default setup_type = ingress"
   echo "                              e.g. --subdomain=test.dashbase.io"
   echo "     --install_dashbase       setup dashbase after EKS setup complete, e.g. --install_dashbase"
+  echo "     --ssh_key_path           enter the custom ssh pub key for EKS node"
+  echo "                              e.g. --ssh_key_path=my_ssh_key.pub"
+  echo "     --dry-run                will run dependency check and create 2 files below"
+  echo "                              my_dashbase_specfile  &  target-eks-cluster.yaml"
   echo ""
   echo "   Command example "
   echo "   ./aws_eks_dashbase_install.sh --aws_access_key=YOURAWSACCESSKEY \ "
@@ -91,6 +95,10 @@ while [[ $# -gt 0 ]]; do
   case $PARAM in
   --help)
     display_help
+    ;;
+  --dry-run)
+    DRY_RUN="true"
+    log_info "DRY_RUN flag is $DRY_RUN"
     ;;
   --aws_access_key)
     fail_if_empty "$PARAM" "$VALUE"
@@ -462,7 +470,11 @@ check_previous_mydash() {
   if [ -z "$PREVIOUSEKS" ]; then
     log_info "No previous mydashXXXXXX EKS cluster detected"
   else
-    log_fatal "Previous mydashXXXXXX EKS clustername $PREVIOUSEKS is detected"
+    if [ "$DRY_RUN" == "true" ]; then
+      log_warning "Previous mydashXXXXXX EKS clustername $PREVIOUSEKS is detected"
+    else
+      log_fatal "Previous mydashXXXXXX EKS clustername $PREVIOUSEKS is detected"
+    fi
   fi
 }
 
@@ -601,23 +613,53 @@ display_bucketname() {
   fi
 }
 
+main_jobs() {
+    run_by_root
+    check_ostype
+    check_commands
+    check_specfile
+    check_version
+    check_bucketname
+    check_subdomain
+    check_aws_key
+    check_instance_type
+    estimate_node_count
+    setup_centos
+    create_ssh_key_pairs
+    update_eks_cluster_yaml
+    setup_eks_cluster
+    check_eks_cluster
+    setup_dashbase
+    display_bucketname
+}
+
 # main process below this line
 {
-run_by_root
-check_ostype
-check_commands
-check_specfile
-check_version
-check_bucketname
-check_subdomain
-check_aws_key
-check_instance_type
-estimate_node_count
-setup_centos
-create_ssh_key_pairs
-update_eks_cluster_yaml
-setup_eks_cluster
-check_eks_cluster
-setup_dashbase
-display_bucketname
+  if [ "$DRY_RUN" == "true" ]; then
+    run_by_root
+    check_ostype
+    check_commands
+    check_specfile
+    check_version
+    check_bucketname
+    check_subdomain
+    check_aws_key
+    check_instance_type
+    estimate_node_count
+    PUBKEY="$BASEDIR/dashbase_rsa.pub"
+    update_eks_cluster_yaml
+    check_previous_mydash
+    check_max_vpc_limit
+    # compare vpc count with max vpc limit , the vpc count should be less than vpc limit
+    if [ "$(/usr/local/bin/aws ec2 describe-vpcs --region $REGION --output text | grep -c VPCS)" -lt $VPC_LIMIT ]; then
+      log_info "The region $REGION still has available quota for additional VPC for EKS cluster"
+    else
+      log_warning "The region $REGION doesn't have enough quota for additional VPC, please contact AWS support to raise the VPC quota"
+    fi
+    echo "The aws_eks_dashbase_install script is in dry-run mode, no change has made"
+    echo "please check the file target-eks-cluster.yaml and my_dashbase_specfile"
+    echo ""
+  else
+    main_jobs
+  fi
 } 2>&1 | tee -a /tmp/aws_eks_setup_"$(date +%d-%m-%Y_%H-%M-%S)".log
