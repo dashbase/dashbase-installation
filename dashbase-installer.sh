@@ -161,6 +161,10 @@ while [[ $# -gt 0 ]]; do
   --help)
     display_help
     ;;
+  --dry-run)
+    DRY_RUN="true"
+    log_info "DRY_RUN flag is $DRY_RUN"
+    ;;
   --specfile)
     fail_if_empty "$PARAM" "$VALUE"
     SPECFILE=$VALUE
@@ -311,9 +315,6 @@ while [[ $# -gt 0 ]]; do
   --vpa_max)
     fail_if_empty "$PARAM" "$VALUE"
     VPA_TBL_MAXMEM=$VALUE
-    ;;
-  --dry-run)
-    DRY_RUN="true"
     ;;
   *)
     log_fatal "Unknown parameter ($PARAM) with ${VALUE:-no value}"
