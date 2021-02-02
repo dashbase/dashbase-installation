@@ -8,6 +8,7 @@ rm -rf "$BASEDIR"/target-eks-cluster.yaml
 rm -rf "$BASEDIR"/my_dashbase_specfile
 rm -rf "$BASEDIR"/dashbase_rsa.pub
 rm -rf "$BASEDIR"/dashbase_rsa
+rm -rf "$BASEDIR"/awsfile
 
 
 # This script requires openssl
@@ -547,6 +548,12 @@ create_s3_bucket_policy() {
 
 # attach the s3 bucket policy to the EKS worker nodegroup instance profile
 insert_s3_policy_to_nodegroup() {
+  if [[ "${?}" -ne 0 ]]; then
+    printf "jq is not installed, install jq now\\n"
+    yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+    yum install jq -y
+  fi
+
   POARN=$(echo "aws iam list-policies --query 'Policies[?PolicyName==\`$BUCKETNAME\`].Arn' --output text |awk '{ print $1}'" | bash)
   for NODEGROUP in $(aws eks list-nodegroups --region=$REGION --output json --cluster-name $CLUSTERNAME | jq -r '.nodegroups[]'); do
     IAMINSROLE=$(aws eks describe-nodegroup --region=$REGION --output json --cluster-name $CLUSTERNAME --nodegroup-name $NODEGROUP | jq -r '.nodegroup.nodeRole' | cut -d "/" -f2)

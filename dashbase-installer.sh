@@ -1444,6 +1444,7 @@ fi
 # pre-installation checks
 
 main_process() {
+check_ostype
 check_platform_input
 check_cluster_type_input
 check_ingress_subdomain
@@ -1508,6 +1509,7 @@ display_endpints
 # The main process is running in below
 {
 if [ "$DRY_RUN" == "true" ]; then
+  check_ostype
   check_platform_input
   check_cluster_type_input
   check_ingress_subdomain
