@@ -52,6 +52,8 @@ display_help() {
   echo "     --install_dashbase       setup dashbase after EKS setup complete, e.g. --install_dashbase"
   echo "     --ssh_key_path           enter the custom ssh pub key for EKS node"
   echo "                              e.g. --ssh_key_path=my_ssh_key.pub"
+  echo "     --bucketname             enter existing or custom s3 bucket name"
+  echo "                              e.g. --bucketname=mys3-bucket"
   echo "     --dry-run                will run dependency check and create 2 files below"
   echo "                              my_dashbase_specfile  &  target-eks-cluster.yaml"
   echo ""
@@ -126,6 +128,10 @@ while [[ $# -gt 0 ]]; do
   --ssh_key_path)
     fail_if_empty "$PARAM" "$VALUE"
     SSH_KEY_PATH=$VALUE
+    ;;
+  --bucketname)
+    fail_if_empty "$PARAM" "$VALUE"
+    BUCKETNAME=$VALUE
     ;;
   *)
     log_fatal "Unknown parameter ($PARAM) with ${VALUE:-no value}"
@@ -643,7 +649,6 @@ main_jobs() {
     check_version
     check_bucketname
     check_subdomain
-    check_aws_key
     check_instance_type
     estimate_node_count
     PUBKEY="$BASEDIR/dashbase_rsa.pub"
