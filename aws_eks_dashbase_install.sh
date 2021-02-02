@@ -330,7 +330,7 @@ install_aws_cli() {
   # install aws cli and its dependency
   yum install -y glibc groff less unzip > /dev/null 2>&1
   curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-  unzip -o awscliv2.zip
+  unzip -o awscliv2.zip > /dev/null 2>&1
   sudo ./aws/install > /dev/null 2>&1
 }
 
