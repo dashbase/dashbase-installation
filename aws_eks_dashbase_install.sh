@@ -653,13 +653,17 @@ main_jobs() {
     estimate_node_count
     PUBKEY="$BASEDIR/dashbase_rsa.pub"
     update_eks_cluster_yaml
-    check_previous_mydash
-    check_max_vpc_limit
-    # compare vpc count with max vpc limit , the vpc count should be less than vpc limit
-    if [ "$(/usr/local/bin/aws ec2 describe-vpcs --region $REGION --output text | grep -c VPCS)" -lt $VPC_LIMIT ]; then
-      log_info "The region $REGION still has available quota for additional VPC for EKS cluster"
+    if [ "$( command -v aws > /dev/null ;  echo $? )" -eq "0" ]; then
+       check_previous_mydash
+       check_max_vpc_limit
+       # compare vpc count with max vpc limit , the vpc count should be less than vpc limit
+       if [ "$(/usr/local/bin/aws ec2 describe-vpcs --region $REGION --output text | grep -c VPCS)" -lt $VPC_LIMIT ]; then
+         log_info "The region $REGION still has available quota for additional VPC for EKS cluster"
+       else
+         log_warning "The region $REGION doesn't have enough quota for additional VPC, please contact AWS support to raise the VPC quota"
+       fi
     else
-      log_warning "The region $REGION doesn't have enough quota for additional VPC, please contact AWS support to raise the VPC quota"
+      log_warning "No aws cli is installed, skip checking previous EKS cluster setup and vpc quota"
     fi
     echo "The aws_eks_dashbase_install script is in dry-run mode, no change has made"
     echo "please check the file target-eks-cluster.yaml and my_dashbase_specfile"
