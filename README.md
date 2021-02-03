@@ -3,8 +3,8 @@
 ### AWS only: Create EKS cluster and install Dashbase:
 
 ```
-   1. create a t2.micro EC2 instance with CentOS 7.4  (e.g. ami-0df65459f2f119903 on us-west-2) that will be used as cluster admin host.
-   2. once the EC2 is up, ssh to the EC2 and become root.
+   1. create a t2.micro EC2 instance with CentOS 7.6  (e.g. ami-0b49723d871f1073a on us-eest-1) that will be used as cluster admin jump host.
+   2. once the EC2 is up, ssh to the EC2 and become root. Ensure git  command is installed on this centos.
    3. inside the EC2, run the following commands:
       ** Remember to change the AWS access key and secret, region and subdomain below
 
@@ -15,47 +15,74 @@
                                      --aws_secret_access_key=YOURACESSSECRETACCESSKEY \
                                      --region=YOURREGION --subdomain=YOURSUBDOMAIN --install_dashbase
                                      
-     
-     Enable basic auth when installing dashbase during EKS cluster setup
-     --basic_auth
-     --authusername
-     --authpassword
-  
+     This following script argument must be provided, otherwise script run will be failing.
+       --aws_access_key
+       --aws_secret_access_key
+       --region
+       --subdomain
+
+     By default dashbase installation is using K8s ingress to expose the service endpoints, and subdomain is used in the ingress host value.
+         An example of subdomain is test.dashbase.io
+         And the dashbase web endpoint will be web.test.dashbase.io
+
+     You can specify subdomain in the dashbase-installation/dashbase_specfile, and the script arguments will be like below.
+
      ./aws_eks_dashbase_install.sh   --aws_access_key=YOURAWSACCESSKEY \
                                      --aws_secret_access_key=YOURACESSSECRETACCESSKEY \
-                                     --region=YOURREGION --subdomain=YOURSUBDOMAIN --install_dashbase \
-                                     --basic_auth
-                                     --authusername=admin
-                                     --authpassword=dashbase
-                                     
-     For V2 setup
-     
-     ./aws_eks_dashbase_install.sh   --v2 --aws_access_key=YOURAWSACCESSKEY \
+                                     --region=YOURREGION --install_dashbase 
+
+    The dashbase-installation/dashbase_specfile is used to specify configuration spec for dashbase installation. And if you entered flags for bucketname or subdomain, the input flags will override  setting defined in dashbase_specfile.
+    dashbase_spec file can also define mutiple tables and specify replicas count for table-manager, indexer and searcher. 
+    Please consult Dashbase wiki page or Dashbase support for planning an EKS cluster size.
+
+    In default setup, with default dashbase_spec file setting, it will create 1 table with 1 table-manager,  1 searcher, and 1 indexer, and the table name is named logs.
+    The default setup use 2 X C5.4xlarge nodes.
+    
+    You can use the aws_eks_dashbase_install.sh script to just create the EKS cluster by removing the --install_dashbase flag
+
+     ./aws_eks_dashbase_install.sh   --aws_access_key=YOURAWSACCESSKEY \
                                      --aws_secret_access_key=YOURACESSSECRETACCESSKEY \
-                                     --region=YOURREGION --subdomain=YOURSUBDOMAIN --install_dashbase
-      
+                                     --region=YOURREGION
+       
+   You can also do dry-run mode in which no EKS cluster or dashbase is installed; but will create 2 files below
+
+     ./aws_eks_dashbase_install.sh   --dry-run --region=YOURREGION 
+
+     1. target-eks-cluster.yaml file is created in dry-run and  is used to for EKS cluster setup, and you can inspect the node count.
+     2. my_dashbase_specfile <-- an updated dashbase spec file which can be used in dashbase-installer.sh script
 
 ```
-This will create EKS cluster with two r5.xlarge nodes in the region specified and install dashbase on this cluster.
 
-Installation process saves progress information into log file in current working directory:
+The aws_eks_dashbase_install.sh script saves the script output on a log file in /tmp/ folder; and the log file is named like below
 ```
- dashbase_install_`date +%d-%m-%Y_%H-%M-%S`.log
+ aws_eks_setup_`date +%d-%m-%Y_%H-%M-%S`.log
 ```
 
-At the end of installation process, ingress controller IP will be provided.
-Create Record Set mapping from ingress controller IP to subdomain using AWS Route 53.
+At the end of installation process, ingress controller public IP will be provided.
+Create Record Set mapping from ingress controller public IP to endpoints FQDN (e.g. web.raydash345.dashbase.io) using AWS Route 53.
 After that, endpoints to access Dashbase Web UI, Dashbase table for indexing and Dashbase grafana for monitoring can be accessed.
+```
+Update your DNS server with the following nginx-ingress-controller public IP to map with this name *.raydash345.dashbase.io
+nginx-ingress-controller    a5d2a09d5a1db4843909aaa59355bbad-975300330.us-east-1.elb.amazonaws.com
 
+Update your DNS server with the following nginx-ingress-table-controller public IP to map with this mame table-logs.raydash345.dashbase.io
+nginx-ingress-table-controller    ae8f36086b0384513863d2c3cd4fbcd7-1658389230.us-east-1.elb.amazonaws.com
 
-### AWS only: Uninstall Dashbase and delete EKS cluster and all cluster-related resources:
+Access to dashbase web UI with https://web.raydash345.dashbase.io
+Access to dashbase table endpoint with https://table-logs.raydash345.dashbase.io
+Access to dashbase grafana endpoint with https://grafana.raydash345.dashbase.io
+Access to dashbase admin page endpoint with https://admindash.raydash345.dashbase.io
 
-Run remove_aws_eks.sh script with --region parameter.
-It will find EKS dashbase cluster in that region and delete it.
+```
+
+### AWS only: Uninstall Dashbase 
+
+Run `uninstall-dashbase.sh` script
+It will remove the dashbase installation on the EKS cluster
 
 ```
 cd dashbase-installation/
-deployment-tools/remove_aws_eks.sh --region=REGION
+deployment-tools/uninstall-dashbase.sh
 ```
 
 ### AWS, GCE, AZURE: Install Dashbase on already created K8s cluster:
@@ -68,83 +95,53 @@ Pre-reqs:
     git clone https://github.com/dashbase/dashbase-installation.git
 ```
 
-Run the installer with --platform flag provided (mandatory)
-It will install dashbase with internal https, secure presto, and expose web/tables endpoints in LB.
-
+Update the `dashbase-installation/dashbase_specfile` file 
+And run `dashbase-installer.sh` script
 ```
 cd dashbase-installation/
-./dashbase-installer.sh --platform=aws
+./dashbase-installer.sh --specfile=dashbase_specfile
 ```
+You can do dry-run for `dashbase-installer.sh` which will check your K8s cluster and other dependency only
+```
+./dashbase-installer.sh --dry-run --specfile=dashbase_specfile
+```
+For dry-run mode, --dry-run need to be the first argument.
 
-install script options
+You can also run `dashbase-isntaller.sh` script with other script options, use --help to display the help page
+```
+./dashbase-installer.sh --help
 
-    --platform     aws or azure or gce
-    --subdomain    provide subdomain field when expose via ingress and is required to have ingress flag be present
-                   e.g.  --subdomain=mydomain.bigdomain.io
-    --version      specify a version if not nightly will be used
-                   e.g. --version=1.0.1
-    --ingress      use ingress to expose web/tables; while default is using LB
-
-    --exposemon    expose dashbase observibility tools: pushgateway, prometheus
-    --valuefile    specify a custom dashbase value yaml file
-                   e.g. --valuefile=/tmp/mydashbase_values.yaml
-    --username     username for license information 
-                   e.g. --username=scott
-    --license      dashbase license string 
-                   e.g. --license=Aertyujk8903HJKLBNMLOP34erTui
-    --basic_auth   enable basic authentication via default ingress controller
-    --authusername basic auth username
-                   e.g. --authusername=admin
-    --authpassword basic auth password
-                   e.g. --authpassword=dashbase
-    --valuefile    specifiy a custom dashbase values yaml file. 
-                   dashbase setup will base on provided custom values yaml file only.
-                   e.g. --valuefile=/tmp/my-dashbase-values.yaml
-                   
-    The following options only be valid on V2 dashbase
+```
     
-    --v2               setup dashbase V2
-    --bucketname       cloud object storage bucketname
-                       e.g. --bucketname=my-s3-dashbase
-    --storgae_account  cloud storage account value, in AWS is the ACCESS KEY
-                       e.g. --storage_account=MYSTORAGEACCOUNTSTRING"
-    --storage_key      cloud object storage key, in AWS is the ACCESS SECRET
-                       e.g. --storage_key=MYSTORAGEACCOUNTACCESSKEY"
-    
-    
-    
-###Examples of using ingress, on AWS platform
+###Examples of typical script options, on AWS platform
 
-By default the dashbase-installer.sh script will use Load Balancer on K8s to expose the web and table endpoints. If you like to expose these endpoints using nginx ingress controller, then use the ingress flag, see below.
+By default the `dashbase-installer.sh` script will use nginx ingress controller to expose the web & table endpoints. See below script options used.
 
-    ./dashbase-installer.sh --subdomain=raytest.dashbase.io --ingress --platform=aws
+    ./dashbase-installer.sh --platform=aws --ingress \
+                            --bucketname=s3-mybucket \
+                            --subdomain=test.dashbase.io \
+                            --ingresstable \
+                            --basic_auth --version=2.6.1
 
-The standard installation requires minium 2 nodes with 8 CPU, and 64 GB Ram per node.
+The standard installation requires minium 2 nodes with 16 CPU, and 32 GB Ram per node (e.g. C5.4xlarge in AWS).
+For large deployment setup please contact Dashbase support.
 
-For smaller setup such as 2 X r5.xlarge 2 X (4cpu + 32GB ram), use the dashbase-installer-smallsetup.sh inside the deployment-tools folder
+### Create a dashbase-values.yaml file only
+From the git repo, `dashbase-installation/dashbase-create-valuesfile.sh` script will only read spec file or script options and create the `dashbase-values.yaml` file.
 
 ```
-./deployment-tools/dashbase-installer-smallsetup.sh --platform=aws
-```
-
-### Update dashbase license
+    ./dashbase-create-valuesfile.sh --specfile=dashbase_specfile
 
 ```
-./deployment-tools/upgrade-dashbase.sh --username=username --license=license
-```
 
-### Upgrade dashbase version
+### Update dashbase license or upgrade dashbase version
 
-Run upgrade-dashbase.sh script and specify dashbase version
-```
-./deployment-tools/upgrade-dashbase.sh --version=1.2.0
-``` 
-options used on upgrade script
+Use Dashbase Admin UI to manage or update your dashbase license. 
+You can use Admin UI to upgrade dashbase version and inspect dashbase cluster status.
 
-     --version        specify dashbase version
-     --chartversion   optional entry for dashbase helm chart version, if missing will match with dashbase version
-     --username       username for license information
-     --license        dashbase license string
+
+
+
 
 
 

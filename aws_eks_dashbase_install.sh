@@ -215,9 +215,14 @@ check_version() {
 
 check_bucketname() {
  if [ "$VNUM" -eq 2 ]; then
-   if [[ -n "$BUCKETNAME" ]]; then
+   if [[ -n "$BUCKETNAME" ]] && [[ "$BUCKETNAME_IN_SPECFILE" == "bucketnotfound" ]]; then
      log_info "Entered bucketname is $BUCKETNAME"
      sed -i "s|bucketnotfound|$BUCKETNAME|" "$SPECFILE"
+   elif [[ -n "$BUCKETNAME" ]] && [[ "$BUCKETNAME_IN_SPECFILE" != "bucketnotfound" ]]; then
+      log_info "Entered bucketname is $BUCKETNAME , but in dashbase_specfile also defined bucketname $BUCKETNAME_IN_SPECFILE"
+      log_info "The entered bucketname $BUCKETNAME will be using"
+      sed -i '/\#\ AWS\ S3\ bucket\ name\ used\ in\ V2/!b;n;cBUCKETNAME\=\"MYBUCKETNAME\"' "$SPECFILE"
+      sed -i "s|MYBUCKETNAME|$BUCKETNAME|" "$SPECFILE"
    elif [[ -z "$BUCKETNAME" ]] && [[ "$BUCKETNAME_IN_SPECFILE" == "bucketnotfound" ]]; then
      BUCKETNAME="s3-$CLUSTERNAME"
      log_info "No bucketname is entered use default bucketname $BUCKETNAME"
@@ -233,6 +238,11 @@ check_subdomain() {
   if [ -n "$SUBDOMAIN" ] && [ "$SUBDOMAIN_IN_SPECFILE" == "test.dashbase.io" ]; then
     log_info "Entered subdomain is $SUBDOMAIN"
     sed -i "s|test.dashbase.io|$SUBDOMAIN|g" "$SPECFILE"
+  elif [ -n "$SUBDOMAIN" ] && [ "$SUBDOMAIN_IN_SPECFILE" != "test.dashbase.io" ]; then
+    log_info "Entered subdomain is $SUBDOMAIN , but in dashbase_specfile also defined subdomain $SUBDOMAIN_IN_SPECFILE"
+    log_info "The entered subdomain $SUBDOMAIN will be using"
+    sed -i '/\#\ Set\ the\ domain\ string\ for\ ingress/!b;n;cSUBDOMAIN=\"MYSUBDOMAIN\"' "$SPECFILE"
+    sed -i "s|MYSUBDOMAIN|$SUBDOMAIN|" "$SPECFILE"
   elif [ "$SUBDOMAIN_IN_SPECFILE" != "test.dashbase.io" ]; then
     SUBDOMAIN="$SUBDOMAIN_IN_SPECFILE"
     log_info "Subdomain $SUBDOMAIN from dashbase_specfile is used"
@@ -612,10 +622,12 @@ setup_dashbase() {
 display_bucketname() {
   if [[ $INSTALL_DASHBASE == "true" ]] && [[ ${VNUM} -ge 2 ]]; then
     POARN=$(echo "aws iam list-policies --query 'Policies[?PolicyName==\`$BUCKETNAME\`].Arn' --output text |awk '{ print $1}'" | bash)
-    IAMINSROLE=$(aws iam get-instance-profile --instance-profile-name "$INSPROFILENAME" | grep RoleName | sed -e 's/\"//g' | sed -e 's/\,//g' | awk '{ print $2}')
     echo "The S3 bucket name used in dashbase V2 setup is $BUCKETNAME"
     echo "The S3 bucket policy is $POARN"
-    echo "The IAM role attached with the s3 bucket policy is $IAMINSROLE"
+    for NODEGROUP in $(aws eks list-nodegroups --region=$REGION --output json --cluster-name $CLUSTERNAME | jq -r '.nodegroups[]'); do
+      IAMINSROLE=$(aws eks describe-nodegroup --region=$REGION --output json --cluster-name $CLUSTERNAME --nodegroup-name $NODEGROUP | jq -r '.nodegroup.nodeRole' | cut -d "/" -f2)
+      echo "The $NODEGROUP nodes with this IAM role $IAMINSROLE is attached to policy $POARN to access the s3 bucket $BUCKETNAME"
+    done
   fi
 }
 
