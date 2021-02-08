@@ -1,9 +1,12 @@
 #!/bin/bash
 
 BASEDIR=$(dirname "$0")
+rm -rf "$BASEDIR"/nodecountfile
+rm -rf "$BASEDIR"/newv2table_template.yaml
+rm -rf "$BASEDIR"/newv1table_template.yaml
 
-DASHVERSION="2.4.1"
-INSTALLER_VERSION="2.4.1"
+DASHVERSION="2.6.1"
+INSTALLER_VERSION="2.6.1"
 PLATFORM="undefined"
 INGRESS_FLAG="false"
 V2_FLAG="false"
@@ -17,12 +20,11 @@ AUTHADMINUSERNAME="dashbaseadm"
 AUTHADMINPASSWORD="dashbaseadm123!"
 ADMINUSERNAME="dashbaseadm"
 ADMINPASSWORD="dashbase123"
-BUCKETNAME="undefined"
+BUCKETNAME="bucketnotfound"
 STORAGE_ACCOUNT="undefined"
 STORAGE_KEY="undefined"
 STORAGE_ENDPOINT="undefined"
 PRESTO_FLAG="false"
-PROD_FLAG="false"
 TABLENAME="logs"
 CALL_FLOW_CDR_FLAG="false"
 CALL_FLOW_SIP_FLAG="false"
@@ -37,6 +39,7 @@ VPA_FLAG="false"
 VPA_TBL_MINMEM="1G"
 VPA_TBL_MAXMEM="10G"
 INGRESS_TABLE="false"
+DRY_RUN="false"
 
 echo "Installer script version is $INSTALLER_VERSION"
 
@@ -92,9 +95,8 @@ display_help() {
   echo "     --systemlog    enable dashbase system log table, e.g. --systemlog  this will create a table called system."
   echo "                    and contains all dashbase pods logs in this system table"
   echo "     --demo         setup freeswitch,filebeat pods and feed log data into the target table"
-  echo "     --prod         setup dashbase with production mode that use nodegroups"
-  echo "                    e.g. --prod"
-  echo "                    dashbase apps will deploy to nodgegroups dashbase-core and dashbase-backend"
+  echo "     --dry-run      will only do all checks on dependency, input paraemeters, number of nodes and size in cluster"
+  echo "                    e.g. --dry-run      dry-run flag will not make any change"
   echo ""
   echo "   The following options only be used on V2 dashbase"
   echo "     --v2               setup dashbase V2"
@@ -161,6 +163,17 @@ while [[ $# -gt 0 ]]; do
   --help)
     display_help
     ;;
+  --dry-run)
+    DRY_RUN="true"
+    log_info "DRY_RUN flag is $DRY_RUN"
+    ;;
+  --specfile)
+    fail_if_empty "$PARAM" "$VALUE"
+    SPECFILE=$VALUE
+    source "$BASEDIR"/"$SPECFILE"
+    log_info "Spec file $SPECFILE is used"
+    break
+    ;;
   --subdomain)
     fail_if_empty "$PARAM" "$VALUE"
     SUBDOMAIN=$VALUE
@@ -189,9 +202,25 @@ while [[ $# -gt 0 ]]; do
     fail_if_empty "$PARAM" "$VALUE"
     BUCKETNAME=$VALUE
     ;;
-  --tablename)
+  --tablename1)
     fail_if_empty "$PARAM" "$VALUE"
-    TABLENAME=$VALUE
+    TABLENAME1=$VALUE
+    ;;
+  --tablename2)
+    fail_if_empty "$PARAM" "$VALUE"
+    TABLENAME2=$VALUE
+    ;;
+  --tablename3)
+    fail_if_empty "$PARAM" "$VALUE"
+    TABLENAME3=$VALUE
+    ;;
+  --tablename4)
+    fail_if_empty "$PARAM" "$VALUE"
+    TABLENAME4=$VALUE
+    ;;
+  --tablename5)
+    fail_if_empty "$PARAM" "$VALUE"
+    TABLENAME5=$VALUE
     ;;
   --v2)
     V2_FLAG="true"
@@ -204,9 +233,6 @@ while [[ $# -gt 0 ]]; do
     ;;
   --callflow_sip)
     CALL_FLOW_SIP_FLAG="true"
-    ;;
-  --callflow_net)
-    CALL_FLOW_NET_FLAG="true"
     ;;
   --authusername)
     fail_if_empty "$PARAM" "$VALUE"
@@ -262,9 +288,6 @@ while [[ $# -gt 0 ]]; do
     ;;
   --presto)
     PRESTO_FLAG="true"
-    ;;
-  --prod)
-    PROD_FLAG="true"
     ;;
   --demo)
     DEMO_FLAG="true"
@@ -339,27 +362,45 @@ check_platform_input() {
 
 check_cluster_type_input() {
   # check entered cluster type
-  if [ "$CLUSTERTYPE" == "large" ]; then
+  if [ "$CLUSTERTYPE" == "prod" ]; then
     log_info "using cluster type: $CLUSTERTYPE"
+  elif [ "$CLUSTERTYPE" == "large" ]; then
+    log_info "using cluster type:  $CLUSTERTYPE"
   elif [ "$CLUSTERTYPE" == "small" ]; then
     log_info "using cluster type:  $CLUSTERTYPE"
   elif [ "$CLUSTERTYPE" == "local" ]; then
     log_info "using cluster type:  $CLUSTERTYPE"
   else
-    log_fatal "Incorrect cluster type, and platform type should be either large, small or local"
+    log_fatal "Incorrect cluster type, and platform type should be either prod, large, small or local"
   fi
 
   case "$CLUSTERTYPE" in
-  large)
+  prod)
     INDEXERCPU=7
     INDEXERMEMORY=15
-    INTERNAL_V1_DESIRED_NODE_NUM=2
+    #INTERNAL_V1_DESIRED_NODE_NUM=2
     INTERNAL_V1_DESIRED_NODE_CPU=6
     INTERNAL_V1_DESIRED_NODE_CPU_M=6000
     INTERNAL_V1_DESIRED_NODE_MEM_GI=60
     INTERNAL_V1_DESIRED_NODE_MEM_MI=60000
     INTERNAL_V1_DESIRED_NODE_MEM_KI=60000000
-    INTERNAL_V2_DESIRED_NODE_NUM=2
+    #INTERNAL_V2_DESIRED_NODE_NUM=2
+    INTERNAL_V2_DESIRED_NODE_CPU=14
+    INTERNAL_V2_DESIRED_NODE_CPU_M=14000
+    INTERNAL_V2_DESIRED_NODE_MEM_GI=26
+    INTERNAL_V2_DESIRED_NODE_MEM_MI=26000
+    INTERNAL_V2_DESIRED_NODE_MEM_KI=26000000
+    ;;
+  large)
+    INDEXERCPU=7
+    INDEXERMEMORY=15
+    #INTERNAL_V1_DESIRED_NODE_NUM=2
+    INTERNAL_V1_DESIRED_NODE_CPU=6
+    INTERNAL_V1_DESIRED_NODE_CPU_M=6000
+    INTERNAL_V1_DESIRED_NODE_MEM_GI=60
+    INTERNAL_V1_DESIRED_NODE_MEM_MI=60000
+    INTERNAL_V1_DESIRED_NODE_MEM_KI=60000000
+    #INTERNAL_V2_DESIRED_NODE_NUM=2
     INTERNAL_V2_DESIRED_NODE_CPU=14
     INTERNAL_V2_DESIRED_NODE_CPU_M=14000
     INTERNAL_V2_DESIRED_NODE_MEM_GI=26
@@ -367,15 +408,15 @@ check_cluster_type_input() {
     INTERNAL_V2_DESIRED_NODE_MEM_KI=26000000
     ;;
   small)
-    INDEXERCPU=4
+    INDEXERCPU=3
     INDEXERMEMORY=8
-    INTERNAL_V1_DESIRED_NODE_NUM=3
+    #INTERNAL_V1_DESIRED_NODE_NUM=3
     INTERNAL_V1_DESIRED_NODE_CPU=3
     INTERNAL_V1_DESIRED_NODE_CPU_M=3000
     INTERNAL_V1_DESIRED_NODE_MEM_GI=30
     INTERNAL_V1_DESIRED_NODE_MEM_MI=30000
     INTERNAL_V1_DESIRED_NODE_MEM_KI=30000000
-    INTERNAL_V2_DESIRED_NODE_NUM=3
+    #INTERNAL_V2_DESIRED_NODE_NUM=3
     INTERNAL_V2_DESIRED_NODE_CPU=7
     INTERNAL_V2_DESIRED_NODE_CPU_M=7000
     INTERNAL_V2_DESIRED_NODE_MEM_GI=26
@@ -524,7 +565,6 @@ check_node_v1() {
     echo "Node($1) doesn't have enough memory resources($INTERNAL_V1_DESIRED_NODE_MEM_GI Gi at least)."
     return 0
   fi
-
   ((AVAIILABLE_NODES++))
   return 0
 }
@@ -538,7 +578,6 @@ check_node_v2() {
     echo "Node($1) doesn't have enough memory resources($INTERNAL_V2_DESIRED_NODE_MEM_GI Gi at least)."
     return 0
   fi
-
   ((AVAIILABLE_NODES++))
   return 0
 }
@@ -573,19 +612,37 @@ check_version() {
 
 check_ostype() {
   if [[ $OSTYPE == *"darwin"* ]]; then
-    log_info "Dedected current workstation OS is mac"
+    WKOSTYPE="mac"
+    log_info "Dedected current workstation is a $WKOSTYPE"
+    COMMAND_SED() {
+      sed -i '' "$@"
+    }
   elif [[ $OSTYPE == *"linux"* ]]; then
-    #log_info "Dedected current workstation is a linux"
-    LINUXTYPE=$(cat /etc/os-release |grep NAME |grep -iv "_" |sed 's/\"//g' |cut -d "=" -f2 |awk '{print $1}')
-    if [ "$LINUXTYPE" ==  "CentOS" ]; then
-      log_info "Dedected current workstation OS is centos"
-    elif [ "$LINUXTYPE" ==  "Ubuntu" ]; then
-      log_info "Dedected current workstation OS is ubuntu"
-    fi
+    WKOSTYPE="linux"
+    log_info "Dedected current workstation is a $WKOSTYPE"
+    COMMAND_SED() {
+      sed -i "$@"
+    }
   else
-    log_warning "Dedected current workstation OS is neither mac, centos, ubuntu"
+    log_fatal "This script is only tested on linux or mac; and fail to detect the current workstation os type"
   fi
 }
+
+#check_ostype() {
+#  if [[ $OSTYPE == *"darwin"* ]]; then
+#    log_info "Dedected current workstation OS is mac"
+#  elif [[ $OSTYPE == *"linux"* ]]; then
+#    #log_info "Dedected current workstation is a linux"
+#    LINUXTYPE=$(cat /etc/os-release |grep NAME |grep -iv "_" |sed 's/\"//g' |cut -d "=" -f2 |awk '{print $1}')
+#    if [ "$LINUXTYPE" ==  "CentOS" ]; then
+#      log_info "Dedected current workstation OS is centos"
+#    elif [ "$LINUXTYPE" ==  "Ubuntu" ]; then
+#      log_info "Dedected current workstation OS is ubuntu"
+#    fi
+#  else
+#    log_warning "Dedected current workstation OS is neither mac, centos, ubuntu"
+#  fi
+#}
 
 check_systemlog() {
   if [ "$SYSTEM_LOG" == "false" ]; then
@@ -642,9 +699,9 @@ check_v2() {
   # check v2 input
   if [[ "$V2_FLAG" ==  "true" ]] || [[ ${VNUM} -ge 2 ]]; then
     log_info "V2 is selected checking V2 requirement"
-    if [ "$BUCKETNAME" == "undefined" ]; then
+    if [ "$BUCKETNAME" == "bucketnotfound" ]; then
        log_fatal "V2 is selected but not provide any cloud object storage bucket name"
-    elif [ "$BUCKETNAME" != "undefined" ]; then
+    elif [ "$BUCKETNAME" != "bucketnotfound" ]; then
        log_info "V2 is selected and bucket name is $BUCKETNAME"
        V2_NODE="true"
     fi
@@ -661,6 +718,7 @@ check_v2() {
 }
 
 check_syslog() {
+  # when syslog flag is true, will deploy dashbase fluentd pod
   if [ "$SYSLOG_FLAG" == "true" ]; then
     log_info "Dashbase syslog is enabled, syslog deployment set will be created for receiving syslog"
   fi
@@ -680,31 +738,188 @@ check_eksctl() {
 }
 
 check_prod() {
-  if [ "PROD_FLAG" == "true" ]; then
+  if [ "$CLUSTERTYPE" == "prod" ]; then
     log_info "Production setup is selected. And it requires K8s nodegroup dashbase-core and dashbase-backend"
-    # check cluster type selection
-    if [ "$CLUSTERTYPE" != "large" ]; then
-      log_fatal "Production option requires to use large cluster setup, and detected cluster type is $CLUSTERTYPE"
+    # inspect nodegroups requirement in the K8s cluster
+    CORE_NODEGP_COUNT=$(kubectl get nodes --selector='alpha.eksctl.io/nodegroup-name=dashbase-core' --no-headers |grep -c Ready)
+    BKEND_NODEGP_COUNT=$(kubectl get nodes --selector='alpha.eksctl.io/nodegroup-name=dashbase-backend' --no-headers |grep -c Ready)
+
+    log_info "Checking EKS cluster nodegroups and number of nodes"
+    if [ "$CORE_NODEGP_COUNT" -eq 0 ]; then
+       log_fatal "dashbase-core nodegroup is not detected, when prod setup is selected"
     fi
-    # inspect nodegroup for AWS EKS cluster
-    if [ "$PLATFORM" == "aws" ]; then
-       CLUSTERNAME=$(kubectl config get-contexts |grep "*" |awk '{ print $3}' |cut -d "/" -f2)
-       NODEGP_COUNT=$(eksctl get nodegroup --cluster="$CLUSTERNAME" |tail -n +2 | awk '{print $2}' | grep -cE 'dashbase-backend|dashbase-core')
-       log_info "Checking EKS cluster $CLUSTERNAME nodegroups"
-       if [ "$NODEGP_COUNT" -eq 2 ]; then
-         log_info "dashbase-backend and dashbase-core nodegroups are detected"
-        else
-          log_warning "Production option is selected but nodegroups are not detected"
-          log_warning "Production option requires two K8s nodegroups: dashbase-core and dashbase-backend"
-        fi
+    if [ "$BKEND_NODEGP_COUNT" -eq 0 ]; then
+       log_fatal "dashbase-backend nodegroup is not detected, when prod setup is selected"
     fi
   else
     log_info "Production setup is not selected"
   fi
 }
 
+required_node_count() {
+if [[ "$V2_NODE" ==  "true" ]]; then
+  for j in {1..10} ; do
+   if [[ -n $(eval "echo \$TABLENAME$j") ]]; then
+     eval "echo TABLENAME$j is set and is \${TABLENAME$j}"
+     # check V2 table manager replica
+     if [[ -n $(eval "echo \$TMR_REPL_CNT$j") ]]; then
+        eval "echo TMR_REPL_CNT$j is \${TMR_REPL_CNT$j}"
+     else
+        export TMR_REPL_CNT$j=1
+        eval "echo TMR_REPL_CNT$j is \${TMR_REPL_CNT$j}"
+     fi
+     # check V2 indexer replica
+     if [[ -n $(eval "echo \$INX_REPL_CNT$j") ]]; then
+        eval "echo INX_REPL_CNT$j is \${INX_REPL_CNT$j}"
+     else
+        export INX_REPL_CNT$j=1
+        eval "echo INX_REPL_CNT$j is \${INX_REPL_CNT$j}"
+     fi
+     echo $(printf %.$2f $(echo "scale=2; ($(eval "echo \${TMR_REPL_CNT$j}") / 5) + ($(eval "echo \${INX_REPL_CNT$j}") / 2)" |bc)) |tee -a "$BASEDIR"/nodecountfile
+     # updates yaml file for V2 tables
+     sed -e "s|LOGS|$(eval "echo \$TABLENAME$j")|" "$BASEDIR"/deployment-tools/dashbase-admin/dashbase_setup_tarball/${CLUSTERTYPE}setup/v2table_template.yaml >> "$BASEDIR"/newv2table_template.yaml
+     COMMAND_SED "s|TABLEMANREPLICA|$(eval "echo \$TMR_REPL_CNT$j")|" "$BASEDIR"/newv2table_template.yaml
+     COMMAND_SED "s|INDEXERREPLICA|$(eval "echo \$INX_REPL_CNT$j")|" "$BASEDIR"/newv2table_template.yaml
+   else
+     eval "echo TABLENAME$j is not set"
+   fi
+  done
+  # check V2 searcher replica
+  if [[ -n $SER_REPL_CNT ]]; then
+     echo "A custom searcher replica count is used"
+  elif  [[ "$CLUSTERTYPE" == "prod" ]]; then
+     export SER_REPL_CNT=2
+     echo "Default prod searcher replica count is used"
+  else
+     export SER_REPL_CNT=1
+     echo "Default searcher replica count is used"
+  fi
+  echo "The searcher replica count is $SER_REPL_CNT"
+  echo $(printf %.$2f $(echo "scale=2; $SER_REPL_CNT / 2" |bc)) | tee -a "$BASEDIR"/nodecountfile
+else
+  for j in {1..10} ; do
+   if [[ -n $(eval "echo \$TABLENAME$j") ]]; then
+     eval "echo TABLENAME$j is set and is \${TABLENAME$j}"
+     # check V1 table replica count
+     if [[ -n $(eval "echo \$TB_REPL_CNT$j") ]]; then
+        eval "echo TB_REPL_CNT$j is \${TB_REPL_CNT$j}"
+     else
+        if [[ "$CLUSTERTYPE" == "prod" ]]; then
+           export TB_REPL_CNT$j=2
+        else
+           export TB_REPL_CNT$j=1
+        fi
+        eval "echo TB_REPL_CNT$j is \${TB_REPL_CNT$j}"
+     fi
+     echo $(printf %.$2f $(echo "scale=2; ($(eval "echo \${TB_REPL_CNT$j}") / 2) + 0.1" |bc)) | tee -a "$BASEDIR"/nodecountfile
+     # update yaml file for V1 tables
+     sed -e "s|LOGS|$(eval "echo \$TABLENAME$j")|" "$BASEDIR"/deployment-tools/dashbase-admin/dashbase_setup_tarball/${CLUSTERTYPE}setup/v1table_template.yaml >> "$BASEDIR"/newv1table_template.yaml
+     COMMAND_SED -i "s|TABLEREPLICA|$(eval "echo \$TB_REPL_CNT$j")|" "$BASEDIR"/newv1table_template.yaml
+   else
+     eval "echo TABLENAME$j is not set"
+   fi
+  done
+fi
+
+# Evaluate total node numbers
+BACKEND_NODES=$(cat "$BASEDIR"/nodecountfile | awk '{node_num += $0} END{print node_num}')
+
+if [[ "$CLUSTERTYPE" == "prod" ]]; then
+   TOTAL_NODES=$BACKEND_NODES
+elif [[ "$CLUSTERTYPE" == "large" ]]; then
+   TOTAL_NODES=$(expr $BACKEND_NODES + 1)
+elif [[ "$CLUSTERTYPE" == "small" ]]; then
+   TOTAL_NODES=$(expr $BACKEND_NODES + 2)
+fi
+
+echo "The total number of nodes required is $TOTAL_NODES"
+}
+
+check_node_count() {
+# Compare actual node vs caculated node count requirement
+  DASHBASE_NODE=$(kubectl get nodes --no-headers |wc -l)
+  DASH_CORE_NODE=$(kubectl get nodes -o wide -L alpha.eksctl.io/nodegroup-name --no-headers |grep -c dashbase-core)
+  DASH_BACK_NODE=$(kubectl get nodes -o wide -L alpha.eksctl.io/nodegroup-name --no-headers |grep -c dashbase-backend)
+
+  if [ "$CLUSTERTYPE" ==  "prod" ]; then
+     echo "check nodegroup dashbase-core node counts"
+     if [ "$DASH_CORE_NODE" -ge 3 ]; then
+        log_info "dashbase-core node count is $DASH_CORE_NODE and meet the requirement"
+     else
+        if [ "$DRY_RUN" == "true" ]; then
+          log_warning "dashbase-core node count is $DASH_CORE_NODE and doesn't meet the requirement"
+        else
+          log_fatal "dashbase-core node count is $DASH_CORE_NODE and doesn't meet the requirement"
+        fi
+     fi
+     echo "check nodegroup dashbase-backend node counts"
+     if [ "$DASH_BACK_NODE" -ge "$TOTAL_NODES" ]; then
+        log_info "dashbase-backend node count is $DASH_BACK_NODE and meet the requirement"
+     else
+        if [ "$DRY_RUN" == "true" ]; then
+          log_warning "dashbase-backend node count is $DASH_BACK_NODE and doesn't meet the requirement"
+        else
+          log_fatal "dashbase-backend node count is $DASH_BACK_NODE and doesn't meet the requirement"
+        fi
+     fi
+  elif [ "$CLUSTERTYPE" ==  "large" ] || [ "$CLUSTERTYPE" == "small" ]; then
+       echo "check node counts"
+       if [ "$DASHBASE_NODE" -ge "$TOTAL_NODES" ]; then
+          log_info "The actual node count is $DASHBASE_NODE and meet the requirement"
+       else
+          if [ "$DRY_RUN" == "true" ]; then
+            log_warning "The actual node count is $DASHBASE_NODE and doesn't meet the requirement"
+          else
+            log_fatal "The actual node count is $DASHBASE_NODE and doesn't meet the requirement"
+          fi
+       fi
+  elif [ "$CLUSTERTYPE" == "local" ]; then
+       log_info "local setup is selected, not checking the node counts"
+  fi
+}
+
+check_node_capacity() {
+ if [ "$V2_NODE" == "true" ]; then
+    AVAIILABLE_NODES=0
+    if [ "$CLUSTERTYPE" == "prod" ]; then
+       # get comma separated nodes info
+       for NODE_INFO in $(kubectl get node -o jsonpath='{range .items[*]}{.metadata.name},{.metadata.labels.alpha\.eksctl\.io/nodegroup-name},{.status.capacity.cpu},{.status.capacity.memory}{"\n"}{end}' |grep dashbase-backend); do
+         # replace comma with spaces.
+         read -r NODE_NAME NODE_GROUP NODE_CPU NODE_MEMORY <<<"$(echo "$NODE_INFO" | tr ',' ' ')"
+         check_node_v2 "$NODE_NAME" "$NODE_CPU" "$NODE_MEMORY"
+       done
+    else
+       # get comma separated nodes info
+       for NODE_INFO in $(kubectl get node -o jsonpath='{range .items[*]}{.metadata.name},{.metadata.labels.alpha\.eksctl\.io/nodegroup-name},{.status.capacity.cpu},{.status.capacity.memory}{"\n"}{end}'); do
+         # replace comma with spaces.
+         read -r NODE_NAME NODE_GROUP NODE_CPU NODE_MEMORY <<<"$(echo "$NODE_INFO" | tr ',' ' ')"
+         check_node_v2 "$NODE_NAME" "$NODE_CPU" "$NODE_MEMORY"
+       done
+    fi
+ else
+    AVAIILABLE_NODES=0
+    if [ "$CLUSTERTYPE" == "prod" ]; then
+       # get comma separated nodes info
+       for NODE_INFO in $(kubectl get node -o jsonpath='{range .items[*]}{.metadata.name},{.metadata.labels.alpha\.eksctl\.io/nodegroup-name},{.status.capacity.cpu},{.status.capacity.memory}{"\n"}{end}' |grep dashbase-backend); do
+         # replace comma with spaces.
+         read -r NODE_NAME NODE_GROUP NODE_CPU NODE_MEMORY <<<"$(echo "$NODE_INFO" | tr ',' ' ')"
+         check_node_v1 "$NODE_NAME" "$NODE_CPU" "$NODE_MEMORY"
+       done
+    else
+       # get comma separated nodes info
+       for NODE_INFO in $(kubectl get node -o jsonpath='{range .items[*]}{.metadata.name},{.metadata.labels.alpha\.eksctl\.io/nodegroup-name},{.status.capacity.cpu},{.status.capacity.memory}{"\n"}{end}'); do
+         # replace comma with spaces.
+         read -r NODE_NAME NODE_GROUP NODE_CPU NODE_MEMORY <<<"$(echo "$NODE_INFO" | tr ',' ' ')"
+         check_node_v1 "$NODE_NAME" "$NODE_CPU" "$NODE_MEMORY"
+       done
+    fi
+ fi
+}
+
 preflight_check() {
   # preflight checks
+  echo "Running preflight checks"
+  # check required commands and OS type
   log_info "OS type running this script is $OSTYPE"
   CMDS="kubectl tar bash"
   for x in $CMDS; do
@@ -712,58 +927,27 @@ preflight_check() {
       log_fatal "This script requires $x command and is not found."
     }
   done
-  # check eksctl
+  # check eksctl version
   if [ "$PLATFORM" == "aws" ]; then
      check_eksctl
   fi
-
-  # check production flag
-  check_prod
-
   # check kubernetes API server is connectable
   if ! kubectl cluster-info &>/dev/null; then
     log_fatal "Failed to connect your Kubernetes API server, please check your config or network."
   fi
-
+  # check if dashbase system log is enabled
   check_syslog
+  # check for required RBAC permissions in K8s cluster
   check_k8s_permission
-
   echo ""
-  echo "Checking kubernetes nodes capacity..."
-  if [ "$CLUSTERTYPE" == "local" ]; then
-      "Skipped kubernetes nodes capacity due to localsetup."
-      return
-  fi
-
-  if [ "$V2_NODE" == "true" ]; then
-    AVAIILABLE_NODES=0
-    # get comma separated nodes info
-    for NODE_INFO in $(kubectl get node -o jsonpath='{range .items[*]}{.metadata.name},{.status.capacity.cpu},{.status.capacity.memory}{"\n"}{end}'); do
-      # replace comma with spaces.
-      read -r NODE_NAME NODE_CPU NODE_MEMORY <<<"$(echo "$NODE_INFO" | tr ',' ' ')"
-      check_node_v2 "$NODE_NAME" "$NODE_CPU" "$NODE_MEMORY"
-    done
-    echo ""
-    if [ $AVAIILABLE_NODES -ge $INTERNAL_V2_DESIRED_NODE_NUM ]; then
-      log_info "This cluster is ready for dashbase installation on resources"
-    else
-      log_warning "This cluster doesn't have enough resources for dashbase installation($INTERNAL_V2_DESIRED_NODE_NUM nodes with each have $INTERNAL_V2_DESIRED_NODE_CPU cores and $INTERNAL_V2_DESIRED_NODE_MEM_GI Gi memory at least)."
-    fi
-  else
-    AVAIILABLE_NODES=0
-    # get comma separated nodes info
-    for NODE_INFO in $(kubectl get node -o jsonpath='{range .items[*]}{.metadata.name},{.status.capacity.cpu},{.status.capacity.memory}{"\n"}{end}'); do
-      # replace comma with spaces.
-      read -r NODE_NAME NODE_CPU NODE_MEMORY <<<"$(echo "$NODE_INFO" | tr ',' ' ')"
-      check_node_v1 "$NODE_NAME" "$NODE_CPU" "$NODE_MEMORY"
-    done
-    echo ""
-    if [ $AVAIILABLE_NODES -ge $INTERNAL_V1_DESIRED_NODE_NUM ]; then
-      log_info "This cluster is ready for dashbase installation on resources"
-    else
-      log_warning "This cluster doesn't have enough resources for dashbase installation($INTERNAL_V1_DESIRED_NODE_NUM nodes with each have $INTERNAL_V1_DESIRED_NODE_CPU cores and $INTERNAL_V1_DESIRED_NODE_MEM_GI Gi memory at least)."
-    fi
-  fi
+  # check prod setup is selected or not
+  check_prod
+  # check required nodes base on input flags or spec file
+  required_node_count
+  # compare actual node count vs calculated required node count
+  check_node_count
+  # check each node cpu and memory requirement
+  check_node_capacity
 }
 
 adminpod_setup() {
@@ -793,20 +977,6 @@ adminpod_setup() {
     APODSTATUS=$(kubectl wait --for=condition=Ready pods/admindash-0 -n dashbase | grep -c "condition met")
     if [ "$APODSTATUS" -eq "1" ]; then echo "Admin Pod is available"; else log_fatal "Admin Pod  admindash-0 is not available"; fi
   fi
-}
-
-# deprecated
-setup_helm_tiller() {
-  # create tiller service account in kube-system namespace
-  kubectl exec -it admindash-0 -n dashbase -- bash -c "wget -O /data/rbac-config.yaml https://raw.githubusercontent.com/dashbase/dashbase-installation/master/deployment-tools/config/rbac-config.yaml"
-  kubectl exec -it admindash-0 -n dashbase -- bash -c "kubectl apply -f /data/rbac-config.yaml"
-  # start tiller
-  kubectl exec -it admindash-0 -n dashbase -- bash -c "helm init --service-account tiller"
-  kubectl wait --for=condition=Available deployment/tiller-deploy -n kube-system
-  # check helm
-  # adding dashbase helm repo
-  kubectl exec -it admindash-0 -n dashbase -- bash -c "helm repo add dashbase https://charts.dashbase.io"
-  kubectl exec -it admindash-0 -n dashbase -- bash -c "helm repo list"
 }
 
 check_helm() {
@@ -845,21 +1015,14 @@ download_dashbase() {
   # get the custom values yaml file
   echo "VNUM is $VNUM"
   if [[ "$V2_FLAG" == "true" ]] || [[ "$VNUM" -ge 2 ]]; then
-    log_info "Copy dashbase-values-v2.yaml file for v2 setup"
-    if [[ "$PROD_FLAG" == "true" ]]; then
-       kubectl cp -n dashbase "$BASEDIR"/deployment-tools/dashbase-admin/dashbase_setup_tarball/largesetup/dashbase-values-v2-prod.yaml admindash-0:/data/dashbase-values.yaml
-    else
-       kubectl cp -n dashbase "$BASEDIR"/deployment-tools/dashbase-admin/dashbase_setup_tarball/${CLUSTERTYPE}setup/dashbase-values-v2.yaml admindash-0:/data/dashbase-values.yaml
-    fi
+    log_info "Copy dashbase-values-v2.yaml and newv2table_template.yaml files for v2 setup"
+    kubectl cp -n dashbase "$BASEDIR"/deployment-tools/dashbase-admin/dashbase_setup_tarball/${CLUSTERTYPE}setup/dashbase-values-v2.yaml admindash-0:/data/dashbase-values.yaml
+    kubectl cp -n dashbase "$BASEDIR"/newv2table_template.yaml admindash-0:/data/newv2table_template.yaml
   else
-    log_info "Copy dashbase-values.yaml file for v1 setup"
-    if [[ "$PROD_FLAG" == "true" ]]; then
-       kubectl cp -n dashbase "$BASEDIR"/deployment-tools/dashbase-admin/dashbase_setup_tarball/largesetup/dashbase-values-prod.yaml admindash-0:/data/dashbase-values.yaml
-    else
-       kubectl cp -n dashbase "$BASEDIR"/deployment-tools/dashbase-admin/dashbase_setup_tarball/${CLUSTERTYPE}setup/dashbase-values.yaml admindash-0:/data/dashbase-values.yaml
-    fi
+    log_info "Copy dashbase-values.yaml and new v1table_template.yaml files for v1 setup"
+    kubectl cp -n dashbase "$BASEDIR"/deployment-tools/dashbase-admin/dashbase_setup_tarball/${CLUSTERTYPE}setup/dashbase-values.yaml admindash-0:/data/dashbase-values.yaml
+    kubectl cp -n dashbase "$BASEDIR"/newv1table_template.yaml admindash-0:/data/newv1table_template.yaml
   fi
-
   kubectl exec -it admindash-0 -n dashbase -- bash -c "chmod a+x /data/*.sh"
   # create sym link for dashbase custom values yaml from /dashbase
   kubectl exec -it admindash-0 -n dashbase -- bash -c "ln -s /data/dashbase-values.yaml  /dashbase/dashbase-values.yaml"
@@ -926,8 +1089,18 @@ update_dashbase_valuefile() {
     kubectl exec -it admindash-0 -n dashbase -- bash -c "sed -i '/\#API\_ENV/ r /data/api_env.yaml' /data/dashbase-values.yaml"
   fi
   # update table name
-  log_info "update dashbase-values.yaml file with table name = $TABLENAME"
-  kubectl exec -it admindash-0 -n dashbase -- sed -i "s|LOGS|$TABLENAME|" /data/dashbase-values.yaml
+
+  if [[ "$V2_FLAG" ==  "true" ]] || [[ "$VNUM" -ge 2 ]]; then
+    kubectl exec -it admindash-0 -n dashbase -- sed -i '/tablesv2/ r /data/newv2table_template.yaml' /data/dashbase-values.yaml
+    kubectl exec -it admindash-0 -n dashbase -- sed -i "s|SEARCHERREPLICA|$SER_REPL_CNT|g" /data/dashbase-values.yaml
+  else
+    kubectl exec -it admindash-0 -n dashbase -- sed -i '/V1_tables/ r /data/newv1table_template.yaml' /data/dashbase-values.yaml
+  fi
+  log_info "update dashbase-values.yaml file for LOGS with first table name = $TABLENAME1"
+  kubectl exec -it admindash-0 -n dashbase -- sed -i "s|LOGS|$TABLENAME1|g" /data/dashbase-values.yaml
+
+  #log_info "update dashbase-values.yaml file with table name = $TABLENAME"
+  #kubectl exec -it admindash-0 -n dashbase -- sed -i "s|LOGS|$TABLENAME|" /data/dashbase-values.yaml
   # exporter is currently not using, exporter related config will be removed in future
   # kubectl exec -it admindash-0 -n dashbase -- sed -i "s|LOGS|$TABLENAME|" /data/exporter_metric.yaml
 
@@ -1215,10 +1388,66 @@ demo_setup() {
   fi
 }
 
+display_endpints() {
+# display endpoints
+echo "Exposed endpoints are below"
+
+if [[ "$INGRESS_FLAG" == "true"  ]]; then
+   echo ""
+   echo "Update your DNS server with the following nginx-ingress-controller public IP to map with this name *.$SUBDOMAIN"
+   kubectl get svc -n dashbase |grep nginx-ingress-controller |awk '{print $1 "    " $4}'
+   if [[ "$INGRESS_TABLE" == "true" ]]; then
+     echo ""
+     echo "Update your DNS server with the following nginx-ingress-table-controller public IP to map with this mame table-$TABLENAME.$SUBDOMAIN"
+     kubectl get svc -n dashbase |grep nginx-ingress-table-controller |awk '{print $1 "    " $4}'
+     echo ""
+   fi
+   echo "Access to dashbase web UI with https://web.$SUBDOMAIN"
+   echo "Access to dashbase table endpoint with https://table-$TABLENAME.$SUBDOMAIN"
+   echo "Access to dashbase grafana endpoint with https://grafana.$SUBDOMAIN"
+   echo "Access to dashbase admin page endpoint with https://admindash.$SUBDOMAIN"
+   echo ""
+else
+
+  for SERVICE_INFO in $(kubectl get service -o=jsonpath='{range .items[*]}{.metadata.name},{.spec.type},{.status.loadBalancer.ingress[0].ip},{.status.loadBalancer.ingress[0].hostname}{"\n"}{end}' -n dashbase |grep -iv -E 'prometheus|pushgateway'); do
+  read -r SERVICE_NAME SERVICE_TYPE SERVICE_LB_IP SERVICE_LB_HOSTNAME <<<"$(echo "$SERVICE_INFO" | tr ',' ' ')"
+  if [ "$SERVICE_TYPE" != "LoadBalancer" ]; then
+    continue
+  fi
+  # ingress is one of the loadbalancer, skip here to make the logic clear.
+  if [ "$SERVICE_NAME" == "ingress-nginx-ingress-controller" ]; then
+    continue
+  fi
+
+  if [[ -n "$SERVICE_LB_IP" ]]; then
+    echo "LoadBalancer($SERVICE_NAME): IP is ready and is https://$SERVICE_LB_IP"
+  elif [[ -n "$SERVICE_LB_HOSTNAME" ]]; then
+    echo "LoadBalancer($SERVICE_NAME): IP is ready and is https://$SERVICE_LB_HOSTNAME"
+  else
+    echo "LoadBalancer($SERVICE_NAME): IP is not ready."
+  fi
+  done
+
+  for SERVICE_INFO in $(kubectl get service -o=jsonpath='{range .items[*]}{.metadata.name},{.spec.type},{.status.loadBalancer.ingress[0].ip},{.status.loadBalancer.ingress[0].hostname}{"\n"}{end}' -n dashbase |grep -E 'prometheus|pushgateway'); do
+  read -r SERVICE_NAME SERVICE_TYPE SERVICE_LB_IP SERVICE_LB_HOSTNAME <<<"$(echo "$SERVICE_INFO" | tr ',' ' ')"
+  if [ "$SERVICE_TYPE" != "LoadBalancer" ]; then
+     continue
+  fi
+  if [[ -n "$SERVICE_LB_IP" ]]; then
+     echo "LoadBalancer($SERVICE_NAME): IP is ready and is http://$SERVICE_LB_IP"
+  elif [[ -n "$SERVICE_LB_HOSTNAME" ]]; then
+     echo "LoadBalancer($SERVICE_NAME): IP is ready and is http://$SERVICE_LB_HOSTNAME"
+  fi
+  done
+
+fi
+}
+
 # main processes executed below this line
 # pre-installation checks
 
-{
+main_process() {
+check_ostype
 check_platform_input
 check_cluster_type_input
 check_ingress_subdomain
@@ -1277,50 +1506,23 @@ expose_syslog
 demo_setup
 
 # display endpoints
-echo "Exposed endpoints are below"
+display_endpints
+}
 
-if [[ "$INGRESS_FLAG" == "true"  ]]; then
-   echo ""
-   echo "Update your DNS server with the following ingress controller IP to map with this name *.$SUBDOMAIN"
-   kubectl get svc -n dashbase |grep nginx-ingress-controller |awk '{print $1 "    " $4}'
-   echo "Access to dashbase web UI with https://web.$SUBDOMAIN"
-   echo "Access to dashbase table endpoint with https://table-$TABLENAME.$SUBDOMAIN"
-   echo "Access to dashbase grafana endpoint with https://grafana.$SUBDOMAIN"
-   echo "Access to dashbase admin page endpoint with https://admindash.$SUBDOMAIN"
-   echo ""
+# The main process is running in below
+{
+if [ "$DRY_RUN" == "true" ]; then
+  check_ostype
+  check_platform_input
+  check_cluster_type_input
+  check_ingress_subdomain
+  check_basic_auth
+  check_version
+  check_license
+  check_v2
+  check_systemlog
+  preflight_check
 else
-
-  for SERVICE_INFO in $(kubectl get service -o=jsonpath='{range .items[*]}{.metadata.name},{.spec.type},{.status.loadBalancer.ingress[0].ip},{.status.loadBalancer.ingress[0].hostname}{"\n"}{end}' -n dashbase |grep -iv -E 'prometheus|pushgateway'); do
-  read -r SERVICE_NAME SERVICE_TYPE SERVICE_LB_IP SERVICE_LB_HOSTNAME <<<"$(echo "$SERVICE_INFO" | tr ',' ' ')"
-  if [ "$SERVICE_TYPE" != "LoadBalancer" ]; then
-    continue
-  fi
-  # ingress is one of the loadbalancer, skip here to make the logic clear.
-  if [ "$SERVICE_NAME" == "ingress-nginx-ingress-controller" ]; then
-    continue
-  fi
-
-  if [[ -n "$SERVICE_LB_IP" ]]; then
-    echo "LoadBalancer($SERVICE_NAME): IP is ready and is https://$SERVICE_LB_IP"
-  elif [[ -n "$SERVICE_LB_HOSTNAME" ]]; then
-    echo "LoadBalancer($SERVICE_NAME): IP is ready and is https://$SERVICE_LB_HOSTNAME"
-  else
-    echo "LoadBalancer($SERVICE_NAME): IP is not ready."
-  fi
-  done
-
-  for SERVICE_INFO in $(kubectl get service -o=jsonpath='{range .items[*]}{.metadata.name},{.spec.type},{.status.loadBalancer.ingress[0].ip},{.status.loadBalancer.ingress[0].hostname}{"\n"}{end}' -n dashbase |grep -E 'prometheus|pushgateway'); do
-  read -r SERVICE_NAME SERVICE_TYPE SERVICE_LB_IP SERVICE_LB_HOSTNAME <<<"$(echo "$SERVICE_INFO" | tr ',' ' ')"
-  if [ "$SERVICE_TYPE" != "LoadBalancer" ]; then
-     continue
-  fi
-  if [[ -n "$SERVICE_LB_IP" ]]; then
-     echo "LoadBalancer($SERVICE_NAME): IP is ready and is http://$SERVICE_LB_IP"
-  elif [[ -n "$SERVICE_LB_HOSTNAME" ]]; then
-     echo "LoadBalancer($SERVICE_NAME): IP is ready and is http://$SERVICE_LB_HOSTNAME"
-  fi
-  done
-
+  main_process
 fi
-
 } 2>&1 | tee -a /tmp/dashbase_install_"$(date +%d-%m-%Y_%H-%M-%S)".log

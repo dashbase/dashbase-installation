@@ -1,0 +1,93 @@
+# This is the dashbase install spec file
+DASHVERSION="2.6.1"
+
+# Change the following platform to suit for the cloud e.g. gce or azure
+PLATFORM="aws"
+
+# dashbase deployment type
+CLUSTERTYPE="large"
+
+# Expose endpoints in K8s ingress
+INGRESS_FLAG="true"
+
+# Expose tables' endpoints in table's nginx ingress controller
+INGRESS_TABLE="true"
+
+# Set the domain string for ingress
+SUBDOMAIN="test.dashbase.io"
+
+# AWS S3 bucket name used in V2
+BUCKETNAME="bucketnotfound"
+
+# Dashbase backend engine, default is using V2
+V1_FLAG="false"
+
+# specify the name of custom dashbase-values.yaml file
+VALUEFILE="dashbase-values.yaml"
+
+# dashbase license information, default is undefined and will use 60 days trial license
+USERNAME="undefined"
+LICENSE="undefined"
+
+# Enable basic auth for dashbase web
+BASIC_AUTH="true"
+
+# dashbase web basic auth login credential with user level
+AUTHBASICUSERNAME="tester"
+AUTHBASICPASSWORD="tester123!"
+
+# dashbase web basic auth login credential with admin level
+AUTHADMINUSERNAME="dashbaseadm"
+AUTHADMINPASSWORD="dashbaseadm123!"
+
+# dashbase admin UI  default login credential
+ADMINUSERNAME="dashbaseadm"
+ADMINPASSWORD="dashbase123"
+
+# First dashbase table name
+TABLENAME1="logs"
+
+# Second dashbase table name
+# TABLENAME2="logs2"
+
+# you can use TABLENAMEx where x=1..10 to define 1st to 10th tablenames
+
+# V1 1st table replica count
+# TB_REPL_CNT1=1
+
+# V1 2nd table replica count
+# TB_REPL_CNT2=1
+# you can use TB_REPL_CNTx where x=1..10 to define V1 tables' replica counts
+
+# V2 1st table table-manager and indexer replica counts
+# TMR_REPL_CNT1=1
+# INX_REPL_CNT1=1
+
+# V2 2nd table table-manager and indexer replica counts
+# TMR_REPL_CNT2=1
+# INX_REPL_CNT2=1
+
+# you can use TMR_REPL_CNTx where x=1..10 to define V2 table-managers' replica counts
+# you can use INX_REPL_CNTx where x=1..10 to define V2 indexers' replica counts
+
+# V2 searcher replica count
+SER_REPL_CNT=1
+# you can use SER_REPL_CNT to define V2 searcher replica count
+
+# enabling VOIP features
+CALL_FLOW_CDR_FLAG="false"
+CALL_FLOW_SIP_FLAG="false"
+
+# enable dashbase's own system log collected by dashbase
+SYSTEM_LOG="false"
+
+# enable dashbase fluentd pod for syslog collecttion
+SYSLOG_FLAG="false"
+
+# enabling hpa on indexer
+HPA_FLAG="false"
+
+# enabling vpa on table-manager
+VPA_FLAG="false"
+VPA_TBL_MINMEM="1G"
+VPA_TBL_MAXMEM="10G"

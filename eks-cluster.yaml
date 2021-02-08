@@ -1,0 +1,20 @@
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  name: CLUSTERNAME
+  region: REGION
+  version: "KUBECTLVERSION"
+
+availabilityZones: ["REGIONa", "REGIONb"]
+managedNodeGroups:
+  - name: standard-workers
+    instanceType: MYINSTYPE
+    desiredCapacity: NODECOUNT
+    minSize: NODECOUNT
+    maxSize: NODECOUNT
+    volumeSize: 80
+    availabilityZones: ["REGIONa"]
+    ssh:
+      allow: true
+      publicKeyPath: MYPUBKEY

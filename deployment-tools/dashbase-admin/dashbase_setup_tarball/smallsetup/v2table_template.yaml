@@ -1,0 +1,29 @@
+  LOGS:
+    table_manager:
+      memoryAutoScaler:
+        enabled: false
+        min: MINMEMTBLMAN
+        max: MAXMEMTBLMAN
+      priorityClassName: dashbase-high-priority
+      replicas: TABLEMANREPLICA
+      containerConfig:
+        resources:
+          requests:
+            cpu: 1
+            memory: 3G
+          limits:
+            cpu: 1
+            memory: 3G
+    indexer:
+      priorityClassName: dashbase-high-priority
+      replicas: INDEXERREPLICA
+      horizontalpodautoscaler:
+        enabled: false
+      containerConfig:
+        resources:
+          requests:
+            cpu: INXCPU
+            memory: INXMEMG
+          limits:
+            cpu: INXCPU
+            memory: INXMEMG
