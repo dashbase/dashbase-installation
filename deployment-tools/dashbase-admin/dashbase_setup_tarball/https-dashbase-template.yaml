@@ -1,27 +1,27 @@
 kind: Secret
 metadata:
-  name: dashbase-keystore
+  name: dashbase-keystore-new
 apiVersion: v1
 data:
   keystore: KEYSTORE
 ---
 kind: Secret
 metadata:
-  name: dashbase-keystore-password
+  name: dashbase-keystore-password-new
 apiVersion: v1
 data:
   keystore_password: KEYPASS
 ---
 kind: Secret
 metadata:
-  name: dashbase-cert
+  name: dashbase-cert-new
 apiVersion: v1
 data:
   cert.pem: CERTPEM
 ---
 kind: Secret
 metadata:
-  name: dashbase-key
+  name: dashbase-key-new
 apiVersion: v1
 data:
   key.pem: KEYPEM
@@ -34,4 +34,11 @@ data:
   key.pem: KAFKA_CLIENT_PEM
   cert.pem: KAFKA_CLIENT_CERT
   ca.cert: KAFKA_CA_CERT
+---
+kind: Secret
+metadata:
+  name: kafka-keystore
+apiVersion: v1
+data:
+  keystore: KAFKA_KEYSTORE
 ---
