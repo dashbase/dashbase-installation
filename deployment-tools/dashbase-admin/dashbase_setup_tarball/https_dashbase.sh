@@ -53,6 +53,25 @@ echo "using openssl command creating dashbase-cert.pem  and  dashbase-key.pem  f
 openssl pkcs12 -in dashbase-keystore.p12 -nokeys -out dashbase-cert.pem -passin pass:$KEYSTORE_PASSWORD
 openssl pkcs12 -in dashbase-keystore.p12 -nodes -nocerts -out dashbase-key.pem -passin pass:$KEYSTORE_PASSWORD
 
+
+echo "Generate CA Certificate"
+KAFKA_CERT_FILE="./kafka-ca-cert"
+KAFKA_KEY_FILE="./kafka-ca-key"
+openssl req -nodes -new -x509 -keyout "${KAFKA_KEY_FILE}" -out "${KAFKA_CERT_FILE}" -days 3650 -subj "/CN=cluster.local/O=Dashbase"
+keytool -keystore dashbase-keystore -alias CAroot -import -file "${KAFKA_CERT_FILE}" -noprompt -storepass "$KEYSTORE_PASSWORD"
+
+echo "Sign dashbase certificate and import it"
+# keytool -keystore dashbase-keystore -alias dashbase -certreq -file cert-file -storepass "$KEYSTORE_PASSWORD"
+openssl x509 -req -CA "${KAFKA_CERT_FILE}" -CAkey "${KAFKA_KEY_FILE}" -in dashbase-cert.pem -out dashbase-cert-signed.pem -days 3650 -CAcreateserial
+keytool -keystore dashbase-keystore -alias SingedDashbase -import -file "dashbase-cert-signed.pem" -noprompt -storepass "$KEYSTORE_PASSWORD"
+
+echo "Generate kafka client key"
+openssl genrsa -out kafka.client.pkcs1.key 4096
+openssl pkcs8 -topk8 -in ./kafka.client.pkcs1.key -nocrypt -out kafka.client.key
+openssl x509 -req -CA "${KAFKA_CERT_FILE}" -CAkey "${KAFKA_KEY_FILE}" -in kafka.client.key -out kafka.client.key.signed -days 3650 -CAcreateserial
+openssl req -new -sha256 -key kafka.client.key -subj "/CN=cluster.local/O=Dashbase" -out kafka.client.csr
+openssl x509 -req -CA "${KAFKA_CERT_FILE}" -CAkey "${KAFKA_KEY_FILE}" -in kafka.client.csr -out kafka.client.pem -days 3650 -CAcreateserial
+
 echo "signed signed-cert generation for dashbase is completed"
 echo "you should have the following files:"
 echo "1. dashbase-kestore  java keystore for dashbase"
@@ -69,12 +88,18 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
    DASHBASE_KEYSTORE_B64=`cat dashbase-keystore |base64`
    DASHBASE_CERT_B64=`cat dashbase-cert.pem |base64`
    DASHBASE_KEY_B64=`cat dashbase-key.pem |base64`
+   KAFKA_CA_CERT=$(base64 < "${KAFKA_CERT_FILE}")
+   KAFKA_CLIENT_CERT=$(base64 < kafka.client.pem)
+   KAFKA_CLIENT_PEM=$(base64 < kafka.client.key)
 elif [[ "$OSTYPE" == "linux-gnu" ]] || [[ "$OSTYPE" == "linux-musl" ]]; then
    echo "create dashbase Base 64 encryption for generated key, cert, keystore, keystore password from linux workstation"
    DASHBASE_KEYSTORE_PASS_B64=`echo -n "$KEYSTORE_PASSWORD" |base64 -w 0`
    DASHBASE_KEYSTORE_B64=`cat dashbase-keystore |base64 -w 0`
    DASHBASE_CERT_B64=`cat dashbase-cert.pem |base64 -w 0`
    DASHBASE_KEY_B64=`cat dashbase-key.pem |base64 -w 0`
+   KAFKA_CA_CERT=$(base64 -w 0< "${KAFKA_CERT_FILE}")
+   KAFKA_CLIENT_CERT=$(base64 -w 0< kafka.client.pem)
+   KAFKA_CLIENT_PEM=$(base64 -w 0< kafka.client.key)
 else
    echo "OSTYPE is not supported"
    exit
@@ -104,11 +129,17 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
    sed -i .bak "s|KEYPASS|${DASHBASE_KEYSTORE_PASS_B64}|" https-dashbase.yaml
    sed -i .bak "s|CERTPEM|${DASHBASE_CERT_B64}|" https-dashbase.yaml
    sed -i .bak "s|KEYPEM|${DASHBASE_KEY_B64}|" https-dashbase.yaml
+   sed -i .bak "s|KAFKA_CA_CERT|${KAFKA_CA_CERT}|" https-dashbase.yaml
+   sed -i .bak "s|KAFKA_CLIENT_CERT|${KAFKA_CLIENT_CERT}|" https-dashbase.yaml
+   sed -i .bak "s|KAFKA_CLIENT_PEM|${KAFKA_CLIENT_PEM}|" https-dashbase.yaml
 elif [[ "$OSTYPE" == "linux-gnu" ]] || [[ "$OSTYPE" == "linux-musl" ]]; then
    sed -i "s|KEYSTORE|${DASHBASE_KEYSTORE_B64}|" https-dashbase.yaml
    sed -i "s|KEYPASS|${DASHBASE_KEYSTORE_PASS_B64}|" https-dashbase.yaml
    sed -i "s|CERTPEM|${DASHBASE_CERT_B64}|" https-dashbase.yaml
    sed -i "s|KEYPEM|${DASHBASE_KEY_B64}|" https-dashbase.yaml
+   sed -i "s|KAFKA_CA_CERT|${KAFKA_CA_CERT}|" https-dashbase.yaml
+   sed -i "s|KAFKA_CLIENT_CERT|${KAFKA_CLIENT_CERT}|" https-dashbase.yaml
+   sed -i "s|KAFKA_CLIENT_PEM|${KAFKA_CLIENT_PEM}|" https-dashbase.yaml
 else
    echo "OSTYPE is not supported"
    exit
