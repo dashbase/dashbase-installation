@@ -1,5 +1,5 @@
 #!/bin/bash
-# 
+#
 echo "#########################################################################"
 echo "## This script create self signed ssl cert for dashbase and presto     ##"
 echo "## The created self signed certs are storing as K8s secrets            ##"
@@ -7,9 +7,11 @@ echo "## There are three arguments need to provide to run this script        ##"
 echo "##                                                                     ##"
 echo "## --dashbase   means creating dashbase certs                          ##"
 echo "## --presto     means creating presto certs                            ##"
+echo "## --kafka      means creating kafka certs (                           ##"
+echo "##                include keys for filebeat side)                      ##"
 echo "## --namespace  input your namespace with equal sign                   ##"
 echo "##                                                                     ##"
-echo "##  Example: create  both dashbase and presto ssl certs                ##" 
+echo "##  Example: create  both dashbase and presto ssl certs                ##"
 echo "##  ./create-sslcerts.sh  --dashbase --presto --namespace=mynamespace  ##"
 echo "##                                                                     ##"
 echo "##  Example: just list dashbase/presto keystore password               ##"
@@ -22,9 +24,11 @@ mkdir -p ~/data
 rm -rf ~/data/*.pem
 rm -rf ~/data/https-presto.yaml
 rm -rf ~/data/https-dashbase.yaml
+rm -rf ~/data/https-kafka.yaml
 
 DASH_FLAG="false"
 PRESTO_FLAG="false"
+KAFKA_FLAG="false"
 NAMESPACE="undefined"
 CMDS="curl tar unzip git keytool"
 
@@ -67,6 +71,9 @@ while [[ $# -gt 0 ]]; do
     ;;
   --presto)
     PRESTO_FLAG="true"
+    ;;
+  --kafka)
+    KAFKA_FLAG="true"
     ;;
   *)
     log_fatal "Unknown parameter ($PARAM) with ${VALUE:-no value}"
@@ -122,6 +129,19 @@ create_presto_sslcert() {
   fi
 }
 
+create_kafka_sslcert() {
+  echo "setup kafka (include client side) internal SSL cert, key, keystore, keystore password"
+  cd ~/data ; ~/data/https_kafka.sh $NAMESPACE
+  kubectl apply -f ~/data/https_kafka.yaml -n $NAMESPACE
+  kubectl get secrets -n $NAMESPACE | grep -E 'kafka-client|kafka-key'
+  CHKPSECRETS=$(kubectl get secrets -n $NAMESPACE | grep -c 'kafka-client|kafka-key')
+  if [ "$CHKPSECRETS" -eq "3" ]; then
+    echo "kafka (include client side) SSL cert, key, keystore and keystore password are created"
+  else
+    echo "Error to create kafka (include client side) SSL cert, key, keystore, and keystore password"
+  fi
+}
+
 # main process start below this line
 check_namespace_input
 check_commands
@@ -130,11 +150,15 @@ check_commands
 
 curl -k https://dashbase-public.s3-us-west-1.amazonaws.com/scripts/https-dashbase-template.yaml -o ~/data/https-dashbase-template.yaml
 curl -k https://dashbase-public.s3-us-west-1.amazonaws.com/scripts/https-presto-template.yaml -o ~/data/https-presto-template.yaml
+curl -k https://dashbase-public.s3-us-west-1.amazonaws.com/scripts/https-kafka-template.yaml -o ~/data/https-kafka-template.yaml
+
 curl -k https://dashbase-public.s3-us-west-1.amazonaws.com/scripts/https_dashbase.sh -o ~/data/https_dashbase.sh
 curl -k https://dashbase-public.s3-us-west-1.amazonaws.com/scripts/https_presto2.sh -o ~/data/https_presto2.sh
+curl -k https://dashbase-public.s3-us-west-1.amazonaws.com/scripts/https_kafka.sh -o ~/data/https_kafka.sh
 
 chmod a+x ~/data/https_dashbase.sh
 chmod a+x ~/data/https_presto2.sh
+chmod a+x ~/data/https_kafka.sh
 
 
 # create  dashbase cert
@@ -153,13 +177,25 @@ else
    log_info "dashbase flag is $PRESTO_FLAG ; not creating the presto self-signed cert"
 fi
 
+# create kafka cert
+if [ "$KAFKA_FLAG" = "true" ]; then
+   log_info "Creating kafka SSL cert (include client side)"
+   create_kafka_sslcert
+else
+   log_info "dashbase flag does not include kafka; not creating the kafka self-signed cert"
+fi
+
 # retrive the dashbase and presto keystore password
 
 kubectl get secrets presto-keystore-password -n $NAMESPACE -o yaml |grep "keystore_password:" |awk '{ print $2}' |base64 --decode > presto-keypass
 kubectl get secrets dashbase-keystore-password -n $NAMESPACE -o yaml |grep "keystore_password:" |awk '{ print $2}' |base64 --decode > dashbase-keypass
+kubectl get secrets kafka-keystore-password -n $NAMESPACE -o yaml |grep "keystore_password:" |awk '{ print $2}' |base64 --decode > kafka-keypass
+
 PKEYPASS=$(cat presto-keypass)
 DASHPASS=$(cat dashbase-keypass)
+KAFKAPASS=$(cat kafka-keypass)
 
 echo "the dashbase keystore password = $DASHPASS"
 echo "the presto keystore password = $PKEYPASS"
+echo "the kafka keystore password = $KAFKAPASS"
 

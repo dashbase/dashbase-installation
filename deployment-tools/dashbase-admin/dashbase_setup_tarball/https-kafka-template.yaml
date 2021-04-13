@@ -1,0 +1,23 @@
+kind: Secret
+metadata:
+  name: kafka-keystore-password
+apiVersion: v1
+data:
+  keystore_password: KEYPASS
+---
+kind: Secret
+metadata:
+  name: kafka-client
+apiVersion: v1
+data:
+  cert.key: KAFKA_CLIENT_PEM
+  cert.pem: KAFKA_CLIENT_CERT
+  ca.cert: KAFKA_CA_CERT
+---
+kind: Secret
+metadata:
+  name: kafka-keystore
+apiVersion: v1
+data:
+  keystore: KAFKA_KEYSTORE
+---
