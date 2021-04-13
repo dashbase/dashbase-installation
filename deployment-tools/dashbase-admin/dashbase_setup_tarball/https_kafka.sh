@@ -16,7 +16,7 @@ fi
 
 KAFKA_CERT_FILE="./kafka-ca-cert"
 KAFKA_KEY_FILE="./kafka-ca-key"
-# remove previous dashbase cert, key and keystore in the current folder
+# remove previous kafka cert, key and keystore in the current folder
 [ -e kafka-keystore ] && rm -rf kafka-keystore
 [ -e kafka-client-key.pem ] && rm -rf kafka-client-key.pem
 [ -e kafka.csr ] && rm -rf kafka.csr
