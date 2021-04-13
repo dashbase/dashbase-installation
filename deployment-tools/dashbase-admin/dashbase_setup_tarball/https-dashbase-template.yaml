@@ -31,7 +31,7 @@ metadata:
   name: kafka-client
 apiVersion: v1
 data:
-  key.pem: KAFKA_CLIENT_PEM
+  cert.key: KAFKA_CLIENT_PEM
   cert.pem: KAFKA_CLIENT_CERT
   ca.cert: KAFKA_CA_CERT
 ---
