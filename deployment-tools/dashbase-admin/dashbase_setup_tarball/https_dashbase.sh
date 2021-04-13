@@ -57,7 +57,7 @@ openssl pkcs12 -in dashbase-keystore.p12 -nodes -nocerts -out dashbase-key.pem -
 echo "Generate CA Certificate"
 KAFKA_CERT_FILE="./kafka-ca-cert"
 KAFKA_KEY_FILE="./kafka-ca-key"
-openssl req -nodes -new -x509 -keyout "${KAFKA_KEY_FILE}" -out "${KAFKA_CERT_FILE}" -days 3650 -subj "/CN=kafka/O=Dashbase" -extensions v3_ca
+openssl req -nodes -new -x509 -keyout "${KAFKA_KEY_FILE}" -out "${KAFKA_CERT_FILE}" -days 3650 -subj "/CN=kafka/O=Dashbase"
 
 echo "Generate Kafka keystore"
 keytool -genkey -noprompt \
