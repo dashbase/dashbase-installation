@@ -133,7 +133,7 @@ fi
 # feed the base64 outputs of key, cert, keystore, and keystore password into https-dashbase.yaml file
 
 echo "feed the base64 outputs of key, cert, keystore, and keystore password into https-dashbase.yaml file"
-cp ./deployment-tools/dashbase-admin/dashbase_setup_tarball/https-dashbase-template.yaml https-dashbase.yaml
+cp https-dashbase-template.yaml https-dashbase.yaml
 
 
 if [[ "$OSTYPE" == "darwin"* ]]; then
@@ -157,8 +157,8 @@ else
    exit
 fi
 
-# echo "https.yaml file is updated"
-# echo "kubectl apply -f https.yaml -n $NAMESPACE"
+echo "https.yaml file is updated"
+echo "kubectl apply -f https.yaml -n $NAMESPACE"
 #kubectl apply -f https-dashbase.yaml -n $NAMESPACE
-# kubectl get secrets -n $NAMESPACE |grep dashbase
-# echo "install steps for dashbase SSL cert, pem, keystore on K8s cluster is completed"
+kubectl get secrets -n $NAMESPACE |grep dashbase
+echo "install steps for dashbase SSL cert, pem, keystore on K8s cluster is completed"
