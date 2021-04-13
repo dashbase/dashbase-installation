@@ -71,13 +71,13 @@ openssl pkcs8 -topk8 -in ./kafka.client.pkcs1.key -nocrypt -out kafka.client.key
 openssl req -new -sha256 -key kafka.client.key -subj "/CN=kafka-client/O=Dashbase" -out kafka.client.csr
 openssl x509 -req -CA "${KAFKA_CERT_FILE}" -CAkey "${KAFKA_KEY_FILE}" -in kafka.client.csr -out kafka.client.pem -days 3650 -CAcreateserial
 
-echo "signed signed-cert generation for dashbase is completed"
+echo "signed signed-cert generation for kafka is completed"
 echo "you should have the following files:"
-echo "1. dashbase-kestore  java keystore for dashbase"
-echo "2. dashbase-keystore.p12 P12 format file for dashbase-keystore"
-echo "3. dashbase-cert.pem base 64 cert file for dashbase"
-echo "4. dashbase-key.pem  base 64 key file for dashbase"
-echo "The CN of this self-signed cert is dashbase.io"
+echo "1. kafka-kestore  java keystore for kafka"
+echo "2. kafka-ca-cert CA certificate file for kafka"
+echo "3. kafka.client.pem Self-signed certificate file for client side"
+echo "4. kafka.client.key  Private key file for the client side"
+echo "The CN of this self-signed cert is kafka"
 
 # create Base 64 encryption for generated key, cert, keystore, keystore password
 
