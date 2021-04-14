@@ -28,11 +28,9 @@ data:
 ---
 kind: Secret
 metadata:
-  name: kafka-client-secrets
+  name: dashbase-ca
 apiVersion: v1
 data:
-  cert.key: KAFKA_CLIENT_PEM
-  cert.pem: KAFKA_CLIENT_CERT
-  ca.cert: KAFKA_CA_CERT
+  ca.crt: DASHBASE_CA
 ---
 
