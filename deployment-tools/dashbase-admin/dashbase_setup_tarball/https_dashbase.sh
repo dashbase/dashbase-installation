@@ -79,9 +79,7 @@ openssl x509 -req -CA "${KAFKA_CERT_FILE}" -CAkey "${KAFKA_KEY_FILE}" -in kafka.
 keytool -keystore dashbase-keystore -alias kafka -import -file kafka-cert-signed.pem -noprompt -storepass "$KEYSTORE_PASSWORD"
 
 echo "Generate kafka client key"
-openssl genrsa -out kafka.client.pkcs1.key 4096
-openssl pkcs8 -topk8 -in ./kafka.client.pkcs1.key -nocrypt -out kafka.client.key
-openssl req -new -sha256 -key kafka.client.key -subj "/CN=kafka-client/O=Dashbase" -out kafka.client.csr
+openssl req -new -sha256 -key dashbase-key.pem -subj "/CN=kafka-client/O=Dashbase" -out kafka.client.csr
 openssl x509 -req -CA "${KAFKA_CERT_FILE}" -CAkey "${KAFKA_KEY_FILE}" -in kafka.client.csr -out kafka.client.pem -days 3650 -CAcreateserial
 
 echo "signed signed-cert generation for dashbase is completed"
@@ -102,7 +100,6 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
    DASHBASE_KEY_B64=`cat dashbase-key.pem |base64`
    KAFKA_CA_CERT=$(base64 < "${KAFKA_CERT_FILE}")
    KAFKA_CLIENT_CERT=$(base64 < kafka.client.pem)
-   KAFKA_CLIENT_PEM=$(base64 < kafka.client.key)
 elif [[ "$OSTYPE" == "linux-gnu" ]] || [[ "$OSTYPE" == "linux-musl" ]]; then
    echo "create dashbase Base 64 encryption for generated key, cert, keystore, keystore password from linux workstation"
    DASHBASE_KEYSTORE_PASS_B64=`echo -n "$KEYSTORE_PASSWORD" |base64 -w 0`
@@ -111,7 +108,6 @@ elif [[ "$OSTYPE" == "linux-gnu" ]] || [[ "$OSTYPE" == "linux-musl" ]]; then
    DASHBASE_KEY_B64=`cat dashbase-key.pem |base64 -w 0`
    KAFKA_CA_CERT=$(base64 -w 0 < "${KAFKA_CERT_FILE}")
    KAFKA_CLIENT_CERT=$(base64 -w 0 < kafka.client.pem)
-   KAFKA_CLIENT_PEM=$(base64 -w 0 < kafka.client.key)
 else
    echo "OSTYPE is not supported"
    exit
@@ -143,7 +139,7 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
    sed -i .bak "s|KEYPEM|${DASHBASE_KEY_B64}|" https-dashbase.yaml
    sed -i .bak "s|KAFKA_CA_CERT|${KAFKA_CA_CERT}|" https-dashbase.yaml
    sed -i .bak "s|KAFKA_CLIENT_CERT|${KAFKA_CLIENT_CERT}|" https-dashbase.yaml
-   sed -i .bak "s|KAFKA_CLIENT_PEM|${KAFKA_CLIENT_PEM}|" https-dashbase.yaml
+   sed -i .bak "s|KAFKA_CLIENT_PEM|${DASHBASE_KEY_B64}|" https-dashbase.yaml
 elif [[ "$OSTYPE" == "linux-gnu" ]] || [[ "$OSTYPE" == "linux-musl" ]]; then
    sed -i "s|KEYSTORE|${DASHBASE_KEYSTORE_B64}|" https-dashbase.yaml
    sed -i "s|KEYPASS|${DASHBASE_KEYSTORE_PASS_B64}|" https-dashbase.yaml
@@ -151,7 +147,7 @@ elif [[ "$OSTYPE" == "linux-gnu" ]] || [[ "$OSTYPE" == "linux-musl" ]]; then
    sed -i "s|KEYPEM|${DASHBASE_KEY_B64}|" https-dashbase.yaml
    sed -i "s|KAFKA_CA_CERT|${KAFKA_CA_CERT}|" https-dashbase.yaml
    sed -i "s|KAFKA_CLIENT_CERT|${KAFKA_CLIENT_CERT}|" https-dashbase.yaml
-   sed -i "s|KAFKA_CLIENT_PEM|${KAFKA_CLIENT_PEM}|" https-dashbase.yaml
+   sed -i "s|KAFKA_CLIENT_PEM|${DASHBASE_KEY_B64}|" https-dashbase.yaml
 else
    echo "OSTYPE is not supported"
    exit
