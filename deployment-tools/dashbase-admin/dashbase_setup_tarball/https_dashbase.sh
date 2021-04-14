@@ -104,7 +104,7 @@ fi
 # feed the base64 outputs of key, cert, keystore, and keystore password into https-dashbase.yaml file
 
 echo "feed the base64 outputs of key, cert, keystore, and keystore password into https-dashbase.yaml file"
-cp ./deployment-tools/dashbase-admin/dashbase_setup_tarball/https-dashbase-template.yaml https-dashbase.yaml
+cp ./https-dashbase-template.yaml https-dashbase.yaml
 
 
 if [[ "$OSTYPE" == "darwin"* ]]; then
