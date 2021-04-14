@@ -31,6 +31,6 @@ metadata:
   name: dashbase-ca
 apiVersion: v1
 data:
-  ca.crt: CA
+  ca.crt: CACERT
 ---
 
