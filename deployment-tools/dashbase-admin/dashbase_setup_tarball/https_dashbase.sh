@@ -112,13 +112,13 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
    sed -i .bak "s|KEYPASS|${DASHBASE_KEYSTORE_PASS_B64}|" https-dashbase.yaml
    sed -i .bak "s|CERTPEM|${DASHBASE_CERT_B64}|" https-dashbase.yaml
    sed -i .bak "s|KEYPEM|${DASHBASE_KEY_B64}|" https-dashbase.yaml
-   sed -i .bak "s|DASHBASE_CA|${DASHBASE_CA_B64}|" https-dashbase.yaml
+   sed -i .bak "s|CA|${DASHBASE_CA_B64}|" https-dashbase.yaml
 elif [[ "$OSTYPE" == "linux-gnu" ]] || [[ "$OSTYPE" == "linux-musl" ]]; then
    sed -i "s|KEYSTORE|${DASHBASE_KEYSTORE_B64}|" https-dashbase.yaml
    sed -i "s|KEYPASS|${DASHBASE_KEYSTORE_PASS_B64}|" https-dashbase.yaml
    sed -i "s|CERTPEM|${DASHBASE_CERT_B64}|" https-dashbase.yaml
    sed -i "s|KEYPEM|${DASHBASE_KEY_B64}|" https-dashbase.yaml
-   sed -i "s|DASHBASE_CA|${DASHBASE_CA_B64}|" https-dashbase.yaml
+   sed -i "s|CA|${DASHBASE_CA_B64}|" https-dashbase.yaml
 else
    echo "OSTYPE is not supported"
    exit
