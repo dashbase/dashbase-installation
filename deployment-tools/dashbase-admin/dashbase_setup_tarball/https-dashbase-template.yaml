@@ -28,7 +28,7 @@ data:
 ---
 kind: Secret
 metadata:
-  name: kafka-client
+  name: kafka-client-secrets
 apiVersion: v1
 data:
   cert.key: KAFKA_CLIENT_PEM
