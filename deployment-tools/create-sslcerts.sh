@@ -99,9 +99,9 @@ create_dashbase_sslcert() {
   echo "creating dashbase internal SSL cert, key, keystore, keystore password"
   cd ~/data ; ~/data/https_dashbase.sh $NAMESPACE
   kubectl apply -f  ~/data/https-dashbase.yaml -n $NAMESPACE
-  kubectl get secrets -n $NAMESPACE | grep -E 'dashbase-cert|dashbase-key'
-  CHKDSECRETS=$(kubectl get secrets -n $NAMESPACE | grep -E -c 'dashbase-cert|dashbase-key')
-  if [ "$CHKDSECRETS" -eq "4" ]; then
+  kubectl get secrets -n $NAMESPACE | grep -E 'dashbase-cert|dashbase-key|dashbase-ca'
+  CHKDSECRETS=$(kubectl get secrets -n $NAMESPACE | grep -E -c 'dashbase-cert|dashbase-key|dashbase-ca')
+  if [ "$CHKDSECRETS" -eq "5" ]; then
     echo "dashbase SSL cert, key, keystore and keystore password are created"
   else
     echo "Error to create dashbase SSL cert, key, keystore, and keystore password"
