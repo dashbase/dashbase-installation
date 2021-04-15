@@ -1,5 +1,5 @@
 #!/bin/bash
-# 
+#
 echo "#########################################################################"
 echo "## This script create self signed ssl cert for dashbase and presto     ##"
 echo "## The created self signed certs are storing as K8s secrets            ##"
@@ -9,7 +9,7 @@ echo "## --dashbase   means creating dashbase certs                          ##"
 echo "## --presto     means creating presto certs                            ##"
 echo "## --namespace  input your namespace with equal sign                   ##"
 echo "##                                                                     ##"
-echo "##  Example: create  both dashbase and presto ssl certs                ##" 
+echo "##  Example: create  both dashbase and presto ssl certs                ##"
 echo "##  ./create-sslcerts.sh  --dashbase --presto --namespace=mynamespace  ##"
 echo "##                                                                     ##"
 echo "##  Example: just list dashbase/presto keystore password               ##"
@@ -99,9 +99,9 @@ create_dashbase_sslcert() {
   echo "creating dashbase internal SSL cert, key, keystore, keystore password"
   cd ~/data ; ~/data/https_dashbase.sh $NAMESPACE
   kubectl apply -f  ~/data/https-dashbase.yaml -n $NAMESPACE
-  kubectl get secrets -n $NAMESPACE | grep -E 'dashbase-cert|dashbase-key'
-  CHKDSECRETS=$(kubectl get secrets -n $NAMESPACE | grep -E -c 'dashbase-cert|dashbase-key')
-  if [ "$CHKDSECRETS" -eq "4" ]; then
+  kubectl get secrets -n $NAMESPACE | grep -E 'dashbase-cert|dashbase-key|dashbase-ca'
+  CHKDSECRETS=$(kubectl get secrets -n $NAMESPACE | grep -E -c 'dashbase-cert|dashbase-key|dashbase-ca')
+  if [ "$CHKDSECRETS" -eq "5" ]; then
     echo "dashbase SSL cert, key, keystore and keystore password are created"
   else
     echo "Error to create dashbase SSL cert, key, keystore, and keystore password"
