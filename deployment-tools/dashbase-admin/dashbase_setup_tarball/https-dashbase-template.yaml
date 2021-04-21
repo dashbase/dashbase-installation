@@ -26,3 +26,11 @@ apiVersion: v1
 data:
   key.pem: KEYPEM
 ---
+kind: Secret
+metadata:
+  name: dashbase-ca
+apiVersion: v1
+data:
+  ca.crt: CACERT
+---
+
