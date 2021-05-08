@@ -64,6 +64,8 @@ output.elasticsearch:
   hosts: "{{ dashbase_url }}"
   index: "{{ table }}"
   ssl.verification_mode: none
+  username: "{{ username }}" 
+  password: "{{ password }}"
 
 #================================ Logging =====================================
 

@@ -36,6 +36,8 @@ output {
     elasticsearch {
         hosts => "{{ dashbase_url }}"
         index => "{{ table }}"
+        user => "{{ username }}"
+        password => "{{ password }}"
         ssl_certificate_verification => false
     }
 }
